@@ -2,7 +2,7 @@
 
 ## Description
 
-Auto select component for tree data structures.
+Autocomplete component for tree data structures.
 
 ## Usage
 
