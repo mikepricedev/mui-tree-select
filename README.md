@@ -52,6 +52,8 @@ const Sample = () => {
 
 ```
 
+### [Example](https://codesandbox.io/s/lucid-chaplygin-smyzk)
+
 ## Notes
 
 ### Lab

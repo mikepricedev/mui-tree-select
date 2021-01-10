@@ -218,7 +218,7 @@ const Sample: React.FC = () => {
         // multiple
         freeSolo
         // disableClearable
-        disableCloseOnSelect
+        // disableCloseOnSelect
         // debug
         autoSelect
         // autoHighlight

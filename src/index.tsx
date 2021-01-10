@@ -737,6 +737,7 @@ const TreeSelect = <
             setState((state) => ({
               ...state,
               inputValue: "",
+              open: !!disableCloseOnSelect,
             }));
           } else {
             // NOT controlled, set value to local state.
@@ -746,6 +747,7 @@ const TreeSelect = <
               value: value.map((v) =>
                 v instanceof ValueOptionNode ? v.valueNode : v
               ),
+              open: !!disableCloseOnSelect,
             }));
           }
 
@@ -757,6 +759,7 @@ const TreeSelect = <
             setState((state) => ({
               ...state,
               inputValue: getOptionLabel(newValue),
+              open: !!disableCloseOnSelect,
             }));
           } else {
             // NOT controlled, set value to local state.
@@ -764,6 +767,7 @@ const TreeSelect = <
               ...state,
               inputValue: getOptionLabel(newValue),
               value: newValue.valueNode,
+              open: !!disableCloseOnSelect,
             }));
           }
           (onChangeProp as OnChange<T, false, false, false>)(newValue.value);
@@ -946,6 +950,7 @@ const TreeSelect = <
       getOptions,
       upOneBranch,
       isValueControlled,
+      disableCloseOnSelect,
     ]
   );
 
