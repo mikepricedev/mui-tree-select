@@ -428,6 +428,7 @@ const TreeSelect = (props) => {
                     setState((state) => ({
                         ...state,
                         inputValue: "",
+                        open: !!disableCloseOnSelect,
                     }));
                 }
                 else {
@@ -436,6 +437,7 @@ const TreeSelect = (props) => {
                         ...state,
                         inputValue: "",
                         value: value.map((v) => v instanceof ValueOptionNode ? v.valueNode : v),
+                        open: !!disableCloseOnSelect,
                     }));
                 }
                 onChangeProp(value.map((v) => (v instanceof FreeSoloValue ? v : v.value)));
@@ -445,6 +447,7 @@ const TreeSelect = (props) => {
                     setState((state) => ({
                         ...state,
                         inputValue: getOptionLabel(newValue),
+                        open: !!disableCloseOnSelect,
                     }));
                 }
                 else {
@@ -453,6 +456,7 @@ const TreeSelect = (props) => {
                         ...state,
                         inputValue: getOptionLabel(newValue),
                         value: newValue.valueNode,
+                        open: !!disableCloseOnSelect,
                     }));
                 }
                 onChangeProp(newValue.value);
@@ -617,6 +621,7 @@ const TreeSelect = (props) => {
         getOptions,
         upOneBranch,
         isValueControlled,
+        disableCloseOnSelect,
     ]);
     const onBlur = react_1.useCallback((...args) => {
         // When freeSolo is true and autoSelect is false,  an uncommitted free solo
