@@ -163,7 +163,7 @@ const TreeSelect = (props) => {
             loading: false,
             options,
         })));
-    }, [setState]);
+    }, [setState, getOptions]);
     const getOptionDisabled = react_1.useCallback((option) => {
         if (option instanceof LoadingBranchNode) {
             return true;
