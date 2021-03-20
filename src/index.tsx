@@ -294,7 +294,7 @@ const TreeSelect = <
         options,
       }))
     );
-  }, [setState]);
+  }, [setState, getOptions]);
 
   const getOptionDisabled = useCallback<
     NonNullable<
