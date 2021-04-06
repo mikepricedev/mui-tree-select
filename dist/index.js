@@ -22,7 +22,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NodeType = exports.FreeSoloValue = void 0;
+exports.BranchOption = exports.FreeSoloValue = void 0;
 const react_1 = __importStar(require("react"));
 const Autocomplete_1 = __importDefault(require("@material-ui/lab/Autocomplete"));
 const useAutocomplete_1 = require("@material-ui/lab/useAutocomplete");
@@ -49,270 +49,239 @@ const useStyles = styles_1.makeStyles(() => styles_1.createStyles({
         },
     },
 }), { defaultTheme: styles_2.createMuiTheme({}) });
+const convertToString = (value) => typeof value === "symbol" ? value.toString() : `${value}`;
 const primaryTypographyProps = {
     noWrap: true,
 };
-class Node {
+/**
+ * Used to distinguish free solo entries from string values.
+ */
+class FreeSoloValue extends String {
     constructor(value) {
-        this.value = value;
+        super(value);
     }
-    static getValue(value) {
-        return value instanceof Node ? value.value : value;
-    }
-}
-class ValueNode extends Node {
-    constructor(value) {
-        super(value instanceof OptionNode ? value.value : value);
-    }
-}
-class FreeSoloValue extends ValueNode {
 }
 exports.FreeSoloValue = FreeSoloValue;
-class OptionNode extends Node {
-}
-class ValueOptionNode extends OptionNode {
-    constructor(value) {
-        super(value);
-        this.valueNode = new ValueNode(this);
+/**
+ * Options are wrapped to distinguish free solo entries from string
+ * options, this is used internally only.
+ */
+class Option {
+    constructor(option) {
+        this.option = option;
+    }
+    valueOf() {
+        return this.option;
+    }
+    toString() {
+        return convertToString(this.option);
     }
 }
-class BranchNode extends OptionNode {
-    constructor(value) {
-        super(value);
-        this.openedBranchNode = new OpenedBranchNode(this);
-    }
+/**
+ * Indicates an option is a branch node.
+ */
+class BranchOption extends Option {
 }
-class SelectableBranchNode extends BranchNode {
-    constructor(value) {
-        super(value);
-        this.valueOptionNode = new ValueOptionNode(value);
-    }
-}
-class BranchPathNode extends Node {
-}
-class OpenedBranchNode extends BranchPathNode {
-    constructor(branchNode) {
-        super(branchNode.value);
-        this.branchNode = branchNode;
-        this.loadingBranchNode = new LoadingBranchNode(this);
-    }
-}
-// Placeholder to render "loading" in branch node expansions.
-class LoadingBranchNode extends BranchPathNode {
-    constructor(openBranchNode) {
-        super(openBranchNode.value);
-    }
-}
-var NodeType;
-(function (NodeType) {
-    NodeType[NodeType["Leaf"] = 0] = "Leaf";
-    NodeType[NodeType["Branch"] = 1] = "Branch";
-    NodeType[NodeType["SelectableBranch"] = 2] = "SelectableBranch";
-})(NodeType = exports.NodeType || (exports.NodeType = {}));
+exports.BranchOption = BranchOption;
+const DEFAULT_LOADING_TEXT = "Loading…";
+const LOADING_OPTION = Symbol();
 const TreeSelect = (props) => {
     const classes = useStyles();
-    const { autoSelect, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, getOptions: getOptionsProp, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp = {}, loading: loadingProp, loadingText = "Loading…", multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, textFieldProps = {}, value: valueProp, ...rest } = props;
+    const { autoSelect, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, inputValue: inputValueProp, onInputChange: onInputChangeProp, onSelectBranch, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp = {}, loading, loadingText = DEFAULT_LOADING_TEXT, multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, options: optionsProp, textFieldProps = {}, value: valueProp, ...rest } = props;
     const isValueControlled = valueProp !== undefined;
+    const isInputControlled = inputValueProp !== undefined;
     const autoCompleteProps = rest;
     const [state, setState] = react_1.useState({
         branchPath: [],
         inputValue: (() => {
-            if (!multiple && !isValueControlled && defaultValue) {
+            if (defaultValue !== undefined &&
+                !multiple &&
+                !isValueControlled &&
+                !isInputControlled) {
                 return getOptionLabelProp
                     ? getOptionLabelProp(defaultValue)
-                    : defaultValue;
+                    : convertToString(defaultValue);
             }
             else {
                 return "";
             }
         })(),
-        loading: true,
         open: false,
-        options: [],
         value: (() => {
             if (isValueControlled || defaultValue === undefined) {
                 return multiple ? [] : null;
             }
             else if (multiple) {
-                return defaultValue.map((v) => new ValueNode(v));
+                return defaultValue.map((v) => new Option(v));
             }
             else if (defaultValue === null) {
                 return null;
             }
             else {
-                return new ValueNode(defaultValue);
+                return new Option(defaultValue);
             }
         })(),
     });
-    const getOptions = react_1.useCallback(async (branchNode) => {
-        return (await getOptionsProp(branchNode)).map(({ option, type }) => {
-            switch (type) {
-                case NodeType.Leaf:
-                    return new ValueOptionNode(option);
-                case NodeType.Branch:
-                    return new BranchNode(option);
-                case NodeType.SelectableBranch:
-                    return new SelectableBranchNode(option);
-            }
-        });
-    }, [getOptionsProp]);
-    // Get Root Options
-    react_1.useEffect(() => {
-        getOptions().then((options) => setState((state) => ({
-            ...state,
-            loading: false,
-            options,
-        })));
-    }, [setState, getOptions]);
     const getOptionDisabled = react_1.useCallback((option) => {
-        if (option instanceof LoadingBranchNode) {
+        if (option === LOADING_OPTION) {
             return true;
         }
-        else if (option instanceof OpenedBranchNode) {
+        else if (option instanceof BranchOption &&
+            state.branchPath.includes(option)) {
             return false;
         }
-        else if (state.loading) {
+        else if (loading) {
             return true;
         }
         else if (getOptionDisabledProp) {
-            return getOptionDisabledProp(option instanceof FreeSoloValue ? option : option.value);
+            return getOptionDisabledProp(option);
         }
         else {
             return false;
         }
-    }, [getOptionDisabledProp, state.loading]);
+    }, [getOptionDisabledProp, loading, state.branchPath]);
     const getOptionLabel = react_1.useCallback((option) => {
-        const opt = typeof option === "string" ? new FreeSoloValue(option) : option;
-        if (getOptionLabelProp) {
-            return getOptionLabelProp(opt instanceof FreeSoloValue
-                ? opt
-                : opt.value);
+        if (option === LOADING_OPTION) {
+            return loadingText;
+        }
+        else if (getOptionLabelProp) {
+            return getOptionLabelProp((() => {
+                if (option instanceof FreeSoloValue) {
+                    return option;
+                }
+                else if (option instanceof BranchOption) {
+                    return option;
+                }
+                else if (option instanceof Option) {
+                    return option.option;
+                }
+                else {
+                    return option;
+                }
+            })());
+        }
+        else if (option instanceof Option) {
+            return convertToString(option.option);
         }
         else {
-            return opt.value;
+            return convertToString(option);
         }
-    }, [getOptionLabelProp]);
+    }, [getOptionLabelProp, loadingText]);
     const getOptionSelected = react_1.useCallback((option, value) => {
-        if (option instanceof BranchPathNode ||
-            option instanceof SelectableBranchNode) {
+        // An Option is NEVER a FreeSoloValue (sanity); BranchOption and
+        // LOADING_OPTION are NEVER selectable.
+        if (value instanceof FreeSoloValue ||
+            option instanceof BranchOption ||
+            option === LOADING_OPTION) {
             return false;
         }
         else if (getOptionSelectedProp) {
-            return getOptionSelectedProp(option instanceof FreeSoloValue ? option : option.value, value instanceof FreeSoloValue ? value : value.value);
+            return getOptionSelectedProp(option.option, value);
         }
         else {
-            return option.value === value.value;
+            return option.option === value;
         }
     }, [getOptionSelectedProp]);
     const filterOptions = react_1.useMemo(() => {
-        const filterOptions = (() => {
-            if (filterOptionsProp) {
-                if (getOptionLabelProp) {
-                    return (options, state) => {
-                        const convertedState = {
-                            ...state,
-                            getOptionLabel: getOptionLabelProp,
-                        };
-                        return options.filter((option) => filterOptionsProp(option.value, convertedState));
-                    };
+        const filterOptions = filterOptionsProp
+            ? (options, state) => {
+                const newState = {
+                    ...state,
+                    getOptionLabel: (option) => state.getOptionLabel(option instanceof BranchOption ? option : new Option(option)),
+                };
+                return options.filter((option) => filterOptionsProp(option instanceof BranchOption ? option : option.option, newState));
+            }
+            : useAutocomplete_1.createFilterOptions({
+                stringify: getOptionLabel,
+            });
+        // Parent BranchOption and LOADING_OPTION are NEVER filtered
+        return (options, filterOptionsState) => {
+            const [staticOpts, filteredOpts] = options.reduce((opts, opt) => {
+                const [staticOpts, filteredOpts] = opts;
+                // LOADING_OPTION are NEVER filtered
+                if (opt === LOADING_OPTION) {
+                    staticOpts.push(opt);
+                }
+                else if (opt instanceof BranchOption) {
+                    // Parent BranchOption are NEVER filtered
+                    if (state.branchPath.includes(opt)) {
+                        staticOpts.push(opt);
+                    }
+                    else {
+                        filteredOpts.push(opt);
+                    }
                 }
                 else {
-                    return (options, state) => {
-                        const convertedState = {
-                            ...state,
-                            getOptionLabel: (option) => option,
-                        };
-                        return options.filter((option) => filterOptionsProp(option.value, convertedState));
-                    };
+                    filteredOpts.push(opt);
                 }
-            }
-            else {
-                return useAutocomplete_1.createFilterOptions({
-                    stringify: getOptionLabel,
-                });
-            }
-        })();
-        return (options, state) => {
-            const [parentNode, opts] = options.reduce((parsed, v) => {
-                if (v instanceof BranchPathNode) {
-                    parsed[0].push(v);
-                }
-                else {
-                    parsed[1].push(v);
-                }
-                return parsed;
+                return opts;
             }, [[], []]);
-            return [...parentNode, ...filterOptions(opts, state)];
+            return [
+                ...staticOpts,
+                ...filterOptions(filteredOpts, filterOptionsState),
+            ];
         };
-    }, [filterOptionsProp, getOptionLabelProp, getOptionLabel]);
-    const upOneBranch = react_1.useCallback(() => setState((state) => {
-        var _a;
-        if (state.cancelLoading) {
-            state.cancelLoading();
-        }
-        const branchPath = state.branchPath.slice(0, state.branchPath.length - 1);
-        let isCanceled = false;
-        getOptions((_a = lastElm(branchPath)) === null || _a === void 0 ? void 0 : _a.branchNode.value).then((options) => {
-            if (isCanceled) {
-                return;
-            }
+    }, [filterOptionsProp, getOptionLabel, state.branchPath]);
+    const resetInput = react_1.useCallback((event, inputValue) => {
+        if (!isInputControlled) {
             setState((state) => ({
                 ...state,
-                cancelLoading: undefined,
-                loading: false,
-                options,
+                inputValue,
             }));
-        });
-        return {
+        }
+        if (onInputChangeProp) {
+            onInputChangeProp(event, inputValue, "reset");
+        }
+    }, [isInputControlled, onInputChangeProp, setState]);
+    const upOneBranch = react_1.useCallback((event) => {
+        resetInput(event, "");
+        const branchPath = state.branchPath.slice(0, state.branchPath.length - 1);
+        onSelectBranch(lastElm(branchPath));
+        setState((state) => ({
             ...state,
             branchPath,
-            cancelLoading: () => {
-                isCanceled = true;
-            },
-            // Ensure onInputChange "reset" does not add branch name to
-            // input.
-            inputValue: "",
-            loading: true,
-        };
-    }), [setState, getOptions]);
-    const onClose = react_1.useMemo(() => {
-        if (onCloseProp) {
-            return onCloseProp;
+        }));
+    }, [setState, state.branchPath, onSelectBranch, resetInput]);
+    const onClose = react_1.useCallback((...args) => {
+        const [event, reason] = args;
+        //onClose should NOT be called by a BranchOption
+        // selection. onChange MUST handle,
+        if (reason === "select-option") {
+            return;
+        }
+        else if (onCloseProp) {
+            return onCloseProp(...args);
         }
         else {
-            return (...args) => {
-                const [, reason] = args;
-                switch (reason) {
-                    case "select-option":
-                        break; //onChange will handle
-                    case "escape":
-                        if (state.branchPath.length > 0) {
-                            upOneBranch();
-                        }
-                        else {
-                            setState((state) => ({
-                                ...state,
-                                open: false,
-                            }));
-                        }
-                        break;
-                    case "blur":
-                        if (debug) {
-                            return;
-                        }
+            switch (reason) {
+                case "escape":
+                    // Escape goes up One Branch level
+                    if (state.branchPath.length > 0) {
+                        upOneBranch(event);
+                    }
+                    else {
                         setState((state) => ({
                             ...state,
                             open: false,
                         }));
-                        break;
-                    case "toggleInput":
-                        setState((state) => ({
-                            ...state,
-                            open: false,
-                        }));
-                        break;
-                }
-            };
+                    }
+                    break;
+                case "blur":
+                    if (debug) {
+                        return;
+                    }
+                    setState((state) => ({
+                        ...state,
+                        open: false,
+                    }));
+                    break;
+                case "toggleInput":
+                    setState((state) => ({
+                        ...state,
+                        open: false,
+                    }));
+                    break;
+            }
         }
     }, [setState, debug, upOneBranch, state.branchPath, onCloseProp]);
     const onOpen = react_1.useMemo(() => {
@@ -332,7 +301,11 @@ const TreeSelect = (props) => {
         return react_1.default.createElement(core_1.TextField, Object.assign({}, textFieldProps, params));
     }, [textFieldProps]);
     const renderOption = react_1.useCallback((option) => {
-        if (option instanceof OpenedBranchNode) {
+        if (option === LOADING_OPTION) {
+            return (react_1.default.createElement("div", { className: "MuiAutocomplete-loading" }, getOptionLabel(LOADING_OPTION)));
+        }
+        else if (option instanceof BranchOption &&
+            state.branchPath.includes(option)) {
             return (react_1.default.createElement(ListItem_1.default, { className: classes.optionNode, component: "div", divider: true },
                 react_1.default.createElement(ListItemIcon_1.default, null,
                     react_1.default.createElement(Tooltip_1.default, { title: exitBranchText },
@@ -342,14 +315,11 @@ const TreeSelect = (props) => {
                     }, "") },
                     react_1.default.createElement(ListItemText_1.default, { primaryTypographyProps: primaryTypographyProps, primary: getOptionLabel(option) }))) : (react_1.default.createElement(ListItemText_1.default, { primaryTypographyProps: primaryTypographyProps, primary: getOptionLabel(option) }))));
         }
-        else if (option instanceof LoadingBranchNode) {
-            return react_1.default.createElement("div", { className: "MuiAutocomplete-loading" }, loadingText);
-        }
-        else if (state.loading) {
+        else if (loading) {
             return (react_1.default.createElement(core_1.Box, { width: "100%" },
                 react_1.default.createElement(Skeleton_1.default, { animation: "wave" })));
         }
-        else if (option instanceof BranchNode) {
+        else if (option instanceof BranchOption) {
             return (react_1.default.createElement(core_1.Box, { width: "100%", display: "flex" },
                 react_1.default.createElement(core_1.Box, { flexGrow: "1", clone: true },
                     react_1.default.createElement(core_2.Typography, { variant: "inherit", color: "inherit", align: "left", noWrap: true }, getOptionLabel(option))),
@@ -360,195 +330,100 @@ const TreeSelect = (props) => {
             return (react_1.default.createElement(core_2.Typography, { variant: "inherit", color: "inherit", align: "left", noWrap: true }, getOptionLabel(option)));
         }
     }, [
-        loadingText,
         getOptionLabel,
         classes.optionNode,
         state.branchPath,
-        state.loading,
+        loading,
         enterBranchText,
         exitBranchText,
     ]);
     const onInputChange = react_1.useCallback((...args) => {
         const [, inputValue, reason] = args;
+        // Resets are handled by resetInput
+        if (reason === "reset") {
+            return;
+        }
+        if (!isInputControlled) {
+            setState((state) => ({
+                ...state,
+                inputValue,
+            }));
+        }
+        if (onInputChangeProp) {
+            onInputChangeProp(...args);
+        }
+    }, [isInputControlled, onInputChangeProp, setState]);
+    const onChange = react_1.useCallback((...args) => {
+        const [event, , reason] = args;
         switch (reason) {
-            case "input":
+            case "select-option":
+            case "blur":
+            case "create-option":
                 {
-                    setState((state) => ({
-                        ...state,
-                        inputValue,
-                    }));
+                    const value = (multiple
+                        ? lastElm(args[1])
+                        : args[1]);
+                    if (value === LOADING_OPTION) {
+                        return;
+                    }
+                    else if (value instanceof BranchOption) {
+                        if (reason === "blur") {
+                            // Do NOT follow branches on blur
+                            return;
+                        }
+                        else if (state.branchPath.includes(value)) {
+                            upOneBranch(event);
+                        }
+                        else {
+                            // Following branch reset input
+                            resetInput(event, "");
+                            setState((state) => ({
+                                ...state,
+                                branchPath: [...state.branchPath, value],
+                            }));
+                            onSelectBranch(value);
+                        }
+                    }
+                    else {
+                        const parsedValue = value instanceof Option
+                            ? value.option
+                            : new FreeSoloValue(value);
+                        const newValue = (multiple
+                            ? [...args[1].slice(0, -1), parsedValue]
+                            : parsedValue);
+                        // Reset input on new value
+                        if (multiple) {
+                            resetInput(event, "");
+                        }
+                        else {
+                            resetInput(event, getOptionLabel(parsedValue instanceof FreeSoloValue
+                                ? parsedValue
+                                : value));
+                        }
+                        // NOT controlled, set value to local state.
+                        if (isValueControlled) {
+                            setState((state) => ({
+                                ...state,
+                                open: !!disableCloseOnSelect,
+                            }));
+                        }
+                        else {
+                            setState((state) => ({
+                                ...state,
+                                value: newValue,
+                                open: !!disableCloseOnSelect,
+                            }));
+                        }
+                        if (onChangeProp) {
+                            onChangeProp(event, newValue, reason);
+                        }
+                    }
                 }
                 break;
             case "clear":
-                setState((state) => ({
-                    ...state,
-                    inputValue: "",
-                }));
-                break;
-            case "reset":
+            case "remove-option":
                 {
-                    if (multiple) {
-                        setState((state) => ({
-                            ...state,
-                            inputValue,
-                        }));
-                    }
-                    else {
-                        setState((state) => {
-                            if (state.value) {
-                                return {
-                                    ...state,
-                                    inputValue: getOptionLabel(state.value),
-                                };
-                            }
-                            else {
-                                return {
-                                    ...state,
-                                    inputValue,
-                                };
-                            }
-                        });
-                    }
-                }
-                break;
-        }
-    }, [setState, onChangeProp, getOptionLabel, multiple]);
-    const onChange = react_1.useCallback((...args) => {
-        // Do NOT RUN if value is or contains LoadingBranchNode
-        if (multiple
-            ? args[1].some((value) => value instanceof LoadingBranchNode)
-            : args[1] instanceof LoadingBranchNode) {
-            return;
-        }
-        const addSelectedOption = (newValue) => {
-            // ONLY ValueOptionNode should result in a value update here.
-            if (multiple) {
-                const value = args[1];
-                if (isValueControlled) {
-                    setState((state) => ({
-                        ...state,
-                        inputValue: "",
-                        open: !!disableCloseOnSelect,
-                    }));
-                }
-                else {
-                    // NOT controlled, set value to local state.
-                    setState((state) => ({
-                        ...state,
-                        inputValue: "",
-                        value: value.map((v) => v instanceof ValueOptionNode ? v.valueNode : v),
-                        open: !!disableCloseOnSelect,
-                    }));
-                }
-                onChangeProp(value.map((v) => (v instanceof FreeSoloValue ? v : v.value)));
-            }
-            else {
-                if (isValueControlled) {
-                    setState((state) => ({
-                        ...state,
-                        inputValue: getOptionLabel(newValue),
-                        open: !!disableCloseOnSelect,
-                    }));
-                }
-                else {
-                    // NOT controlled, set value to local state.
-                    setState((state) => ({
-                        ...state,
-                        inputValue: getOptionLabel(newValue),
-                        value: newValue.valueNode,
-                        open: !!disableCloseOnSelect,
-                    }));
-                }
-                onChangeProp(newValue.value);
-            }
-        };
-        const addFreeSoloValue = () => {
-            if (multiple) {
-                const value = args[1].map((v) => typeof v === "string" ? new FreeSoloValue(v) : v);
-                if (isValueControlled) {
-                    setState((state) => ({
-                        ...state,
-                        inputValue: "",
-                    }));
-                }
-                else {
-                    // NOT controlled, set value to local state.
-                    setState((state) => ({
-                        ...state,
-                        inputValue: "",
-                        value,
-                    }));
-                }
-                onChangeProp(value.map((v) => (v instanceof FreeSoloValue ? v : v.value)));
-            }
-            else {
-                const value = new FreeSoloValue(args[1]);
-                if (isValueControlled) {
-                    setState((state) => ({
-                        ...state,
-                        inputValue: value.value,
-                    }));
-                }
-                else {
-                    // NOT controlled, set value to local state.
-                    setState((state) => ({
-                        ...state,
-                        inputValue: value.value,
-                        value,
-                    }));
-                }
-                onChangeProp(value);
-            }
-        };
-        switch (args[2]) {
-            case "select-option": // ONLY new options i.e. NOT free solo
-                {
-                    const newValue = multiple
-                        ? lastElm(args[1])
-                        : args[1];
-                    if (newValue instanceof OpenedBranchNode) {
-                        upOneBranch();
-                    }
-                    else if (newValue instanceof BranchNode) {
-                        //NOTE: SelectableBranchNode inherits from BranchNode e.g. is
-                        // accounted for here too.
-                        let isCanceled = false;
-                        setState((state) => {
-                            if (state.cancelLoading) {
-                                state.cancelLoading();
-                            }
-                            return {
-                                ...state,
-                                branchPath: [...state.branchPath, newValue.openedBranchNode],
-                                cancelLoading: () => {
-                                    isCanceled = true;
-                                },
-                                // Ensure onInputChange "reset" does not add branch name to
-                                // input.
-                                inputValue: "",
-                                loading: true,
-                            };
-                        });
-                        getOptions(newValue.value).then((options) => {
-                            if (isCanceled) {
-                                return;
-                            }
-                            setState((state) => ({
-                                ...state,
-                                cancelLoading: undefined,
-                                loading: false,
-                                options,
-                            }));
-                        });
-                    }
-                    else if (newValue instanceof ValueOptionNode) {
-                        // ONLY ValueOptionNode should result in a value update here.
-                        addSelectedOption(newValue);
-                    }
-                }
-                break;
-            case "remove-option": // ONLY called when Multiple is true
-                {
+                    resetInput(event, "");
                     const value = args[1];
                     if (!isValueControlled) {
                         // NOT controlled, set value to local state.
@@ -557,153 +432,87 @@ const TreeSelect = (props) => {
                             value,
                         }));
                     }
-                    onChangeProp(value.map((v) => (v instanceof FreeSoloValue ? v : v.value)));
-                }
-                break;
-            case "clear":
-                {
-                    if (!isValueControlled) {
-                        setState((state) => ({
-                            ...state,
-                            value: multiple ? [] : null,
-                        }));
+                    if (onChangeProp) {
+                        onChangeProp(event, value, reason);
                     }
-                    if (multiple) {
-                        onChangeProp([]);
-                    }
-                    else {
-                        onChangeProp(null);
-                    }
-                }
-                break;
-            case "blur":
-                {
-                    const newValue = multiple
-                        ? lastElm(args[1])
-                        : args[1];
-                    if (newValue instanceof ValueOptionNode) {
-                        // ONLY ValueOptionNode should result in a value update here.
-                        addSelectedOption(newValue);
-                    }
-                    else if (typeof newValue === "string") {
-                        // freeSolo option.
-                        addFreeSoloValue();
-                    }
-                    else if (!multiple) {
-                        setState((state) => {
-                            if (state.value) {
-                                return {
-                                    ...state,
-                                    inputValue: getOptionLabel(state.value),
-                                };
-                            }
-                            else {
-                                return {
-                                    ...state,
-                                    inputValue: "",
-                                };
-                            }
-                        });
-                    }
-                }
-                break;
-            case "create-option": // freeSolo option.
-                {
-                    addFreeSoloValue();
                 }
                 break;
         }
     }, [
+        getOptionLabel,
+        state.branchPath,
         onChangeProp,
         multiple,
         setState,
-        getOptionLabel,
-        getOptions,
+        onSelectBranch,
         upOneBranch,
         isValueControlled,
         disableCloseOnSelect,
+        resetInput,
     ]);
     const onBlur = react_1.useCallback((...args) => {
+        const [event] = args;
         // When freeSolo is true and autoSelect is false,  an uncommitted free solo
         // input value stays in the input field on blur, but is not set as a value.
         // NOTE: This is not the case when autoSelect is true.  This ambiguous state
-        // and behavior is addressed here.  The behavior will be to select the value
-        // as a freeSolo value in autoSelect-like manor.
+        // and behavior is addressed here.  The behavior will be to clear the input.
         if (freeSolo && !autoSelect) {
-            setState((state) => {
-                if (state.inputValue.trim()) {
-                    if (multiple) {
-                        return {
-                            ...state,
-                            inputValue: "",
-                            value: [
-                                ...state.value,
-                                new FreeSoloValue(state.inputValue),
-                            ],
-                        };
-                    }
-                    else {
-                        if (!state.value ||
-                            getOptionLabel(state.value) !== state.inputValue) {
-                            return {
-                                ...state,
-                                value: new FreeSoloValue(state.inputValue),
-                            };
-                        }
-                    }
+            const inputValue = (isInputControlled
+                ? inputValueProp
+                : state.inputValue);
+            const value = isValueControlled ? valueProp : state.value;
+            if (inputValue.trim()) {
+                if (multiple || value === null) {
+                    resetInput(event, "");
                 }
-                return state;
-            });
+                else {
+                    resetInput(event, getOptionLabel(value instanceof FreeSoloValue
+                        ? value
+                        : new Option(value)));
+                }
+            }
         }
         if (onBlurProp) {
             onBlurProp(...args);
         }
-    }, [onBlurProp, freeSolo, autoSelect, multiple, getOptionLabel]);
+    }, [
+        freeSolo,
+        autoSelect,
+        onBlurProp,
+        isInputControlled,
+        inputValueProp,
+        state.inputValue,
+        state.value,
+        isValueControlled,
+        valueProp,
+        multiple,
+        resetInput,
+        getOptionLabel,
+    ]);
     const options = react_1.useMemo(() => {
         const options = [];
         if (state.branchPath.length > 0) {
             const openBranchNode = lastElm(state.branchPath);
             options.push(openBranchNode);
-            if (state.loading) {
-                options.push(openBranchNode.loadingBranchNode);
+            if (loading) {
+                options.push(LOADING_OPTION);
             }
         }
-        if (state.loading) {
+        if (loading) {
             return options;
         }
         else {
-            return state.options.reduce((options, option) => {
-                if (option instanceof SelectableBranchNode) {
-                    options.push(option.valueOptionNode, option);
-                }
-                else {
-                    options.push(option);
-                }
+            return optionsProp.reduce((options, option) => {
+                options.push(option instanceof BranchOption ? option : new Option(option));
                 return options;
             }, options);
         }
-    }, [state.branchPath, state.options, state.loading]);
-    const value = react_1.useMemo(() => {
-        if (valueProp === undefined) {
-            return state.value;
-        }
-        else if (valueProp === null) {
-            return null;
-        }
-        else if (multiple) {
-            return valueProp.map((v) => v instanceof FreeSoloValue ? v : new ValueNode(v));
-        }
-        else {
-            return valueProp instanceof FreeSoloValue
-                ? valueProp
-                : new ValueNode(valueProp);
-        }
-    }, [valueProp, multiple, state.value]);
+    }, [state.branchPath, optionsProp, loading]);
     const ListboxProps = react_1.useMemo(() => {
         if (state.branchPath.length > 0) {
             return {
                 ...ListboxPropsProp,
-                className: `MuiAutocomplete-listbox ${ListboxPropsProp.className || ""} ${state.loading ? classes.listBoxWLoadingBranchNode : ""}`,
+                className: `MuiAutocomplete-listbox ${ListboxPropsProp.className || ""} ${loading ? classes.listBoxWLoadingBranchNode : ""}`,
             };
         }
         else {
@@ -712,10 +521,16 @@ const TreeSelect = (props) => {
     }, [
         ListboxPropsProp,
         state.branchPath,
-        state.loading,
+        loading,
         classes.listBoxWLoadingBranchNode,
     ]);
-    return (react_1.default.createElement(Autocomplete_1.default, Object.assign({}, autoCompleteProps, { autoSelect: autoSelect, debug: debug, disableClearable: disableClearable, disableCloseOnSelect: disableCloseOnSelect, filterOptions: filterOptions, freeSolo: freeSolo, getOptionDisabled: getOptionDisabled, getOptionLabel: getOptionLabel, getOptionSelected: getOptionSelected, inputValue: state.inputValue, ListboxProps: ListboxProps, loading: loadingProp || state.loading, loadingText: loadingText, multiple: multiple, onBlur: onBlur, onInputChange: onInputChange, onChange: onChange, onClose: onClose, onOpen: onOpen, open: open !== null && open !== void 0 ? open : state.open, options: options, renderInput: renderInput, renderOption: renderOption, value: value })));
+    return (react_1.default.createElement(Autocomplete_1.default, Object.assign({}, autoCompleteProps, { autoSelect: autoSelect, debug: debug, disableClearable: disableClearable, disableCloseOnSelect: disableCloseOnSelect, filterOptions: filterOptions, freeSolo: freeSolo, getOptionDisabled: getOptionDisabled, getOptionLabel: getOptionLabel, 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getOptionSelected: getOptionSelected, inputValue: isInputControlled ? inputValueProp : state.inputValue, ListboxProps: ListboxProps, loading: loading && state.branchPath.length === 0, loadingText: loadingText, multiple: multiple, onBlur: onBlur, onInputChange: onInputChange, onChange: onChange, onClose: onClose, onOpen: onOpen, open: open !== null && open !== void 0 ? open : state.open, 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        options: options, renderInput: renderInput, renderOption: renderOption, 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        value: (isValueControlled ? valueProp : state.value) })));
 };
 exports.default = TreeSelect;
 //# sourceMappingURL=index.js.map

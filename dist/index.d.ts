@@ -1,41 +1,40 @@
 /// <reference types="react" />
 import { AutocompleteProps } from "@material-ui/lab/Autocomplete";
-import { Value, FilterOptionsState } from "@material-ui/lab/useAutocomplete";
+import { FilterOptionsState } from "@material-ui/lab/useAutocomplete";
 import { TextFieldProps } from "@material-ui/core";
-declare abstract class Node<T> {
-    readonly value: T;
-    constructor(value: T);
-    static getValue<T>(value: T | Node<T>): T;
+/**
+ * Used to distinguish free solo entries from string values.
+ */
+export declare class FreeSoloValue extends String {
+    constructor(value: string);
 }
-declare class ValueNode<T> extends Node<T> {
-    constructor(value: T | OptionNode<T>);
+/**
+ * Options are wrapped to distinguish free solo entries from string
+ * options, this is used internally only.
+ */
+declare class Option<T> {
+    readonly option: T;
+    constructor(option: T);
+    valueOf(): T;
+    toString(): string;
 }
-export declare class FreeSoloValue extends ValueNode<string> {
-}
-declare abstract class OptionNode<T> extends Node<T> {
-}
-export declare enum NodeType {
-    Leaf = 0,
-    Branch = 1,
-    SelectableBranch = 2
-}
-export interface Option<T> {
-    option: T;
-    type: NodeType;
+/**
+ * Indicates an option is a branch node.
+ */
+export declare class BranchOption<T> extends Option<T> {
 }
 export declare type FreeSoloValueMapping<FreeSolo extends boolean | undefined> = FreeSolo extends true ? FreeSoloValue : never;
-export declare type TreeValue<T, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined> = Value<T | FreeSoloValueMapping<FreeSolo>, Multiple, DisableClearable, false>;
-export declare type OnChange<T, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined> = (value: TreeValue<T, Multiple, DisableClearable, FreeSolo>) => void;
-export declare type TreeSelectProps<T, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined> = Omit<AutocompleteProps<T | FreeSoloValueMapping<FreeSolo>, Multiple, DisableClearable, false>, "inputValue" | "onChange" | "onInputChange" | "renderInput" | "renderOption" | "filterOptions" | "options" | "freeSolo" | "defaultValue" | "value"> & {
-    textFieldProps?: Omit<TextFieldProps, keyof AutocompleteProps<T | FreeSoloValueMapping<FreeSolo>, Multiple, DisableClearable, false> | "defaultValue" | "multiline" | "onChange" | "rows" | "rowsMax" | "select" | "SelectProps" | "value">;
-    onChange: OnChange<T, Multiple, DisableClearable, FreeSolo>;
-    getOptions(branchNode?: T): Promise<Option<T>[]> | Option<T>[];
-    filterOptions?: (option: T, state: FilterOptionsState<T>) => boolean;
+export declare type TreeSelectProps<T, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined> = Pick<AutocompleteProps<T, Multiple, DisableClearable, false>, "defaultValue" | "getOptionSelected"> & Pick<AutocompleteProps<T | FreeSoloValueMapping<FreeSolo>, Multiple, DisableClearable, false>, "onChange" | "renderTags" | "value"> & Pick<AutocompleteProps<T | BranchOption<T>, Multiple, DisableClearable, false>, "getOptionDisabled" | "groupBy" | "onHighlightChange" | "options"> & Pick<AutocompleteProps<T | FreeSoloValueMapping<FreeSolo> | BranchOption<T>, Multiple, DisableClearable, false>, "getOptionLabel"> & Omit<AutocompleteProps<unknown, Multiple, DisableClearable, false>, "defaultValue" | "filterOptions" | "getOptionDisabled" | "getOptionLabel" | "getOptionSelected" | "groupBy" | "onChange" | "onHighlightChange" | "renderTags" | "value" | "filterOptions" | "freeSolo" | "loadingText" | "options" | "renderInput" | "renderOption"> & {
     enterBranchText?: string;
     exitBranchText?: string;
+    /**
+     * @returns `true` to keep option and `false` to filter.
+     */
+    filterOptions?: (option: T | BranchOption<T>, state: FilterOptionsState<T | BranchOption<T>>) => boolean;
     freeSolo?: FreeSolo;
-    value?: TreeValue<T, Multiple, DisableClearable, FreeSolo>;
-    defaultValue?: TreeValue<T, Multiple, DisableClearable, FreeSolo>;
+    loadingText?: string;
+    onSelectBranch: (branchOption?: BranchOption<T>) => void | Promise<void>;
+    textFieldProps?: Omit<TextFieldProps, keyof AutocompleteProps<T | FreeSoloValueMapping<FreeSolo>, Multiple, DisableClearable, false> | "defaultValue" | "multiline" | "onChange" | "rows" | "rowsMax" | "select" | "SelectProps" | "value">;
 };
-declare const TreeSelect: <T, Multiple extends boolean | undefined = undefined, DisableClearable extends boolean | undefined = undefined, FreeSolo extends boolean | undefined = undefined>(props: TreeSelectProps<T, Multiple, DisableClearable, FreeSolo>) => JSX.Element;
+declare const TreeSelect: <T, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined>(props: TreeSelectProps<T, Multiple, DisableClearable, FreeSolo>) => JSX.Element;
 export default TreeSelect;
