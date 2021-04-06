@@ -1,16 +1,9 @@
 module.exports = {
   env: { es2020: true, browser: true },
   parser: "@typescript-eslint/parser",
-  plugins: ["@typescript-eslint"],
-  extends: [
-    "eslint:recommended",
-    "plugin:react/recommended",
-    "plugin:@typescript-eslint/recommended",
-    "prettier",
-    "prettier/@typescript-eslint",
-    "prettier/react",
-  ],
   parserOptions: {
+    jsx: true,
+    useJSXTextNode: true,
     ecmaFeatures: {
       jsx: true,
     },
@@ -18,6 +11,15 @@ module.exports = {
     project: "./tsconfig.json",
     sourceType: "module",
   },
+  plugins: ["@typescript-eslint", "react-hooks"],
+  extends: [
+    "eslint:recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:@typescript-eslint/recommended",
+    "prettier",
+    "prettier/@typescript-eslint",
+    "prettier/react",
+  ],
   settings: {
     react: {
       version: "detect",
