@@ -139,6 +139,7 @@ export type TreeSelectProps<
     | "renderInput"
     | "renderOption"
   > & {
+    branchPath?: BranchOption<T>[];
     enterBranchText?: string;
     exitBranchText?: string;
     /**
@@ -150,7 +151,10 @@ export type TreeSelectProps<
     ) => boolean;
     freeSolo?: FreeSolo;
     loadingText?: string;
-    onSelectBranch: (branchOption?: BranchOption<T>) => void | Promise<void>;
+    onSelectBranch: (
+      branchOption: BranchOption<T> | undefined,
+      branchPath: BranchOption<T>[]
+    ) => void | Promise<void>;
     textFieldProps?: Omit<
       TextFieldProps,
       | keyof AutocompleteProps<
@@ -193,6 +197,7 @@ const TreeSelect = <
 
   const {
     autoSelect,
+    branchPath: branchPathProp,
     debug,
     defaultValue,
     disableClearable,
@@ -222,8 +227,9 @@ const TreeSelect = <
     ...rest
   } = props;
 
-  const isValueControlled = valueProp !== undefined;
+  const isBranchPathControlled = branchPathProp !== undefined;
   const isInputControlled = inputValueProp !== undefined;
+  const isValueControlled = valueProp !== undefined;
 
   const autoCompleteProps = rest as Omit<
     AutocompleteProps<unknown, Multiple, DisableClearable, FreeSolo>,
@@ -260,13 +266,17 @@ const TreeSelect = <
     })() as typeof props.value,
   });
 
+  const branchPath = (isBranchPathControlled
+    ? branchPathProp
+    : state.branchPath) as BranchOption<T>[];
+
   const getOptionDisabled = useCallback<(option: TOption) => boolean>(
     (option: TOption) => {
       if (option === LOADING_OPTION) {
         return true;
       } else if (
         option instanceof BranchOption &&
-        state.branchPath.includes(option)
+        branchPath.includes(option)
       ) {
         return false;
       } else if (loading) {
@@ -277,7 +287,7 @@ const TreeSelect = <
         return false;
       }
     },
-    [getOptionDisabledProp, loading, state.branchPath]
+    [getOptionDisabledProp, loading, branchPath]
   );
 
   const getOptionLabel = useCallback<
@@ -372,7 +382,7 @@ const TreeSelect = <
             staticOpts.push(opt);
           } else if (opt instanceof BranchOption) {
             // Parent BranchOption are NEVER filtered
-            if (state.branchPath.includes(opt)) {
+            if (branchPath.includes(opt)) {
               staticOpts.push(opt);
             } else {
               filteredOpts.push(opt);
@@ -394,7 +404,7 @@ const TreeSelect = <
         ...filterOptions(filteredOpts, filterOptionsState),
       ];
     };
-  }, [filterOptionsProp, getOptionLabel, state.branchPath]);
+  }, [filterOptionsProp, getOptionLabel, branchPath]);
 
   const resetInput = useCallback(
     (
@@ -428,16 +438,18 @@ const TreeSelect = <
     (event: Parameters<typeof resetInput>[0]) => {
       resetInput(event, "");
 
-      const branchPath = state.branchPath.slice(0, state.branchPath.length - 1);
+      const newBranchPath = branchPath.slice(0, branchPath.length - 1);
 
-      onSelectBranch(lastElm(branchPath));
+      if (!isBranchPathControlled) {
+        setState((state) => ({
+          ...state,
+          branchPath: newBranchPath,
+        }));
+      }
 
-      setState((state) => ({
-        ...state,
-        branchPath,
-      }));
+      onSelectBranch(lastElm(newBranchPath), [...newBranchPath]);
     },
-    [setState, state.branchPath, onSelectBranch, resetInput]
+    [isBranchPathControlled, setState, branchPath, onSelectBranch, resetInput]
   );
 
   const onClose = useCallback<
@@ -463,7 +475,7 @@ const TreeSelect = <
         switch (reason) {
           case "escape":
             // Escape goes up One Branch level
-            if (state.branchPath.length > 0) {
+            if (branchPath.length > 0) {
               upOneBranch(event);
             } else {
               setState((state) => ({
@@ -491,7 +503,7 @@ const TreeSelect = <
         }
       }
     },
-    [setState, debug, upOneBranch, state.branchPath, onCloseProp]
+    [setState, debug, upOneBranch, branchPath, onCloseProp]
   );
 
   const onOpen = useMemo<
@@ -546,7 +558,7 @@ const TreeSelect = <
         );
       } else if (
         option instanceof BranchOption &&
-        state.branchPath.includes(option)
+        branchPath.includes(option)
       ) {
         return (
           <ListItem className={classes.optionNode} component="div" divider>
@@ -555,9 +567,9 @@ const TreeSelect = <
                 <ChevronLeftIcon />
               </Tooltip>
             </ListItemIcon>
-            {state.branchPath.length > 1 ? (
+            {branchPath.length > 1 ? (
               <Tooltip
-                title={state.branchPath.reduce((pathStr, branch) => {
+                title={branchPath.reduce((pathStr, branch) => {
                   return `${pathStr}${pathStr ? " > " : ""}${getOptionLabel(
                     branch
                   )}`;
@@ -606,7 +618,7 @@ const TreeSelect = <
     [
       getOptionLabel,
       classes.optionNode,
-      state.branchPath,
+      branchPath,
       loading,
       enterBranchText,
       exitBranchText,
@@ -682,18 +694,22 @@ const TreeSelect = <
               if (reason === "blur") {
                 // Do NOT follow branches on blur
                 return;
-              } else if (state.branchPath.includes(value)) {
+              } else if (branchPath.includes(value)) {
                 upOneBranch(event);
               } else {
                 // Following branch reset input
                 resetInput(event, "");
 
-                setState((state) => ({
-                  ...state,
-                  branchPath: [...state.branchPath, value],
-                }));
+                const newBranchPath = [...branchPath, value];
 
-                onSelectBranch(value);
+                if (!isBranchPathControlled) {
+                  setState((state) => ({
+                    ...state,
+                    branchPath: newBranchPath,
+                  }));
+                }
+
+                onSelectBranch(value, [...newBranchPath]);
               }
             } else {
               const parsedValue =
@@ -762,16 +778,17 @@ const TreeSelect = <
       }
     },
     [
-      getOptionLabel,
-      state.branchPath,
-      onChangeProp,
       multiple,
-      setState,
-      onSelectBranch,
+      branchPath,
       upOneBranch,
-      isValueControlled,
-      disableCloseOnSelect,
       resetInput,
+      setState,
+      isBranchPathControlled,
+      onSelectBranch,
+      isValueControlled,
+      onChangeProp,
+      getOptionLabel,
+      disableCloseOnSelect,
     ]
   );
 
@@ -833,8 +850,8 @@ const TreeSelect = <
   const options = useMemo<TOption[]>(() => {
     const options: TOption[] = [];
 
-    if (state.branchPath.length > 0) {
-      const openBranchNode = lastElm(state.branchPath);
+    if (branchPath.length > 0) {
+      const openBranchNode = lastElm(branchPath);
 
       options.push(openBranchNode as BranchOption<T>);
 
@@ -853,7 +870,7 @@ const TreeSelect = <
         return options;
       }, options);
     }
-  }, [state.branchPath, optionsProp, loading]);
+  }, [branchPath, optionsProp, loading]);
 
   const ListboxProps = useMemo<
     AutocompleteProps<
@@ -863,7 +880,7 @@ const TreeSelect = <
       FreeSolo
     >["ListboxProps"]
   >(() => {
-    if (state.branchPath.length > 0) {
+    if (branchPath.length > 0) {
       return {
         ...ListboxPropsProp,
         className: `MuiAutocomplete-listbox ${
@@ -875,7 +892,7 @@ const TreeSelect = <
     }
   }, [
     ListboxPropsProp,
-    state.branchPath,
+    branchPath,
     loading,
     classes.listBoxWLoadingBranchNode,
   ]);
@@ -895,7 +912,7 @@ const TreeSelect = <
       getOptionSelected={getOptionSelected as any}
       inputValue={isInputControlled ? inputValueProp : state.inputValue}
       ListboxProps={ListboxProps}
-      loading={loading && state.branchPath.length === 0}
+      loading={loading && branchPath.length === 0}
       loadingText={loadingText}
       multiple={multiple}
       onBlur={onBlur}

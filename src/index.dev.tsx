@@ -39,35 +39,42 @@ const getOptionLabel = (option: TOption | FreeSoloValue): string => {
   }
 };
 
+const defaultBranchPath = [new BranchOption("0:5"), new BranchOption("1:2")];
+
 const Sample: React.FC = () => {
   const [state, setState] = useState<{
     single: {
       value: string | FreeSoloValue | null;
       options: TOption[];
       loading: boolean;
+      branchPath: BranchOption<string>[];
     };
     multiple: {
       value: (string | FreeSoloValue)[];
       options: TOption[];
       loading: boolean;
+      branchPath: BranchOption<string>[];
     };
   }>({
     single: {
       value: null,
-      options: generateOptions(undefined, false) as TOption[],
+      options: generateOptions(defaultBranchPath[1], false) as TOption[],
       loading: false,
+      branchPath: defaultBranchPath,
     },
     multiple: {
       value: [],
       options: generateOptions(undefined, false) as TOption[],
       loading: false,
+      branchPath: [],
     },
   });
 
   return (
     <div style={{ width: 350, padding: 16 }}>
       <TreeSelect<string, false, false, true>
-        onSelectBranch={(branchOption) => {
+        branchPath={state.single.branchPath}
+        onSelectBranch={(branchOption, branchPath) => {
           const options = generateOptions(branchOption);
 
           if (options instanceof Promise) {
@@ -75,6 +82,7 @@ const Sample: React.FC = () => {
               ...state,
               single: {
                 ...state.single,
+                branchPath,
                 loading: true,
               },
             }));
@@ -93,6 +101,7 @@ const Sample: React.FC = () => {
               ...state,
               single: {
                 ...state.single,
+                branchPath,
                 options,
                 loading: false,
               },
