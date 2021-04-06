@@ -270,6 +270,12 @@ const TreeSelect = <
     ? branchPathProp
     : state.branchPath) as BranchOption<T>[];
 
+  const inputValue = (isInputControlled
+    ? inputValueProp
+    : state.inputValue) as string;
+
+  const value = isValueControlled ? valueProp : state.value;
+
   const getOptionDisabled = useCallback<(option: TOption) => boolean>(
     (option: TOption) => {
       if (option === LOADING_OPTION) {
@@ -805,12 +811,6 @@ const TreeSelect = <
       // NOTE: This is not the case when autoSelect is true.  This ambiguous state
       // and behavior is addressed here.  The behavior will be to clear the input.
       if (freeSolo && !autoSelect) {
-        const inputValue = (isInputControlled
-          ? inputValueProp
-          : state.inputValue) as string;
-
-        const value = isValueControlled ? valueProp : state.value;
-
         if (inputValue.trim()) {
           if (multiple || value === null) {
             resetInput(event, "");
@@ -835,13 +835,9 @@ const TreeSelect = <
       freeSolo,
       autoSelect,
       onBlurProp,
-      isInputControlled,
-      inputValueProp,
-      state.inputValue,
-      state.value,
-      isValueControlled,
-      valueProp,
+      inputValue,
       multiple,
+      value,
       resetInput,
       getOptionLabel,
     ]
@@ -910,7 +906,7 @@ const TreeSelect = <
       getOptionLabel={getOptionLabel}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       getOptionSelected={getOptionSelected as any}
-      inputValue={isInputControlled ? inputValueProp : state.inputValue}
+      inputValue={inputValue}
       ListboxProps={ListboxProps}
       loading={loading && branchPath.length === 0}
       loadingText={loadingText}
@@ -926,7 +922,7 @@ const TreeSelect = <
       renderInput={renderInput}
       renderOption={renderOption}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      value={(isValueControlled ? valueProp : state.value) as any}
+      value={value as any}
     />
   );
 };
