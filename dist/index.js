@@ -87,9 +87,10 @@ const DEFAULT_LOADING_TEXT = "Loading…";
 const LOADING_OPTION = Symbol();
 const TreeSelect = (props) => {
     const classes = useStyles();
-    const { autoSelect, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, inputValue: inputValueProp, onInputChange: onInputChangeProp, onSelectBranch, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp = {}, loading, loadingText = DEFAULT_LOADING_TEXT, multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, options: optionsProp, textFieldProps = {}, value: valueProp, ...rest } = props;
-    const isValueControlled = valueProp !== undefined;
+    const { autoSelect, branchPath: branchPathProp, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, inputValue: inputValueProp, onInputChange: onInputChangeProp, onSelectBranch, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp = {}, loading, loadingText = DEFAULT_LOADING_TEXT, multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, options: optionsProp, textFieldProps = {}, value: valueProp, ...rest } = props;
+    const isBranchPathControlled = branchPathProp !== undefined;
     const isInputControlled = inputValueProp !== undefined;
+    const isValueControlled = valueProp !== undefined;
     const autoCompleteProps = rest;
     const [state, setState] = react_1.useState({
         branchPath: [],
@@ -122,12 +123,19 @@ const TreeSelect = (props) => {
             }
         })(),
     });
+    const branchPath = (isBranchPathControlled
+        ? branchPathProp
+        : state.branchPath);
+    const inputValue = (isInputControlled
+        ? inputValueProp
+        : state.inputValue);
+    const value = isValueControlled ? valueProp : state.value;
     const getOptionDisabled = react_1.useCallback((option) => {
         if (option === LOADING_OPTION) {
             return true;
         }
         else if (option instanceof BranchOption &&
-            state.branchPath.includes(option)) {
+            branchPath.includes(option)) {
             return false;
         }
         else if (loading) {
@@ -139,7 +147,7 @@ const TreeSelect = (props) => {
         else {
             return false;
         }
-    }, [getOptionDisabledProp, loading, state.branchPath]);
+    }, [getOptionDisabledProp, loading, branchPath]);
     const getOptionLabel = react_1.useCallback((option) => {
         if (option === LOADING_OPTION) {
             return loadingText;
@@ -204,7 +212,7 @@ const TreeSelect = (props) => {
                 }
                 else if (opt instanceof BranchOption) {
                     // Parent BranchOption are NEVER filtered
-                    if (state.branchPath.includes(opt)) {
+                    if (branchPath.includes(opt)) {
                         staticOpts.push(opt);
                     }
                     else {
@@ -221,7 +229,7 @@ const TreeSelect = (props) => {
                 ...filterOptions(filteredOpts, filterOptionsState),
             ];
         };
-    }, [filterOptionsProp, getOptionLabel, state.branchPath]);
+    }, [filterOptionsProp, getOptionLabel, branchPath]);
     const resetInput = react_1.useCallback((event, inputValue) => {
         if (!isInputControlled) {
             setState((state) => ({
@@ -235,13 +243,15 @@ const TreeSelect = (props) => {
     }, [isInputControlled, onInputChangeProp, setState]);
     const upOneBranch = react_1.useCallback((event) => {
         resetInput(event, "");
-        const branchPath = state.branchPath.slice(0, state.branchPath.length - 1);
-        onSelectBranch(lastElm(branchPath));
-        setState((state) => ({
-            ...state,
-            branchPath,
-        }));
-    }, [setState, state.branchPath, onSelectBranch, resetInput]);
+        const newBranchPath = branchPath.slice(0, branchPath.length - 1);
+        if (!isBranchPathControlled) {
+            setState((state) => ({
+                ...state,
+                branchPath: newBranchPath,
+            }));
+        }
+        onSelectBranch(lastElm(newBranchPath), [...newBranchPath]);
+    }, [isBranchPathControlled, setState, branchPath, onSelectBranch, resetInput]);
     const onClose = react_1.useCallback((...args) => {
         const [event, reason] = args;
         //onClose should NOT be called by a BranchOption
@@ -256,7 +266,7 @@ const TreeSelect = (props) => {
             switch (reason) {
                 case "escape":
                     // Escape goes up One Branch level
-                    if (state.branchPath.length > 0) {
+                    if (branchPath.length > 0) {
                         upOneBranch(event);
                     }
                     else {
@@ -283,7 +293,7 @@ const TreeSelect = (props) => {
                     break;
             }
         }
-    }, [setState, debug, upOneBranch, state.branchPath, onCloseProp]);
+    }, [setState, debug, upOneBranch, branchPath, onCloseProp]);
     const onOpen = react_1.useMemo(() => {
         if (onOpenProp) {
             return onOpenProp;
@@ -305,12 +315,12 @@ const TreeSelect = (props) => {
             return (react_1.default.createElement("div", { className: "MuiAutocomplete-loading" }, getOptionLabel(LOADING_OPTION)));
         }
         else if (option instanceof BranchOption &&
-            state.branchPath.includes(option)) {
+            branchPath.includes(option)) {
             return (react_1.default.createElement(ListItem_1.default, { className: classes.optionNode, component: "div", divider: true },
                 react_1.default.createElement(ListItemIcon_1.default, null,
                     react_1.default.createElement(Tooltip_1.default, { title: exitBranchText },
                         react_1.default.createElement(ChevronLeft_1.default, null))),
-                state.branchPath.length > 1 ? (react_1.default.createElement(Tooltip_1.default, { title: state.branchPath.reduce((pathStr, branch) => {
+                branchPath.length > 1 ? (react_1.default.createElement(Tooltip_1.default, { title: branchPath.reduce((pathStr, branch) => {
                         return `${pathStr}${pathStr ? " > " : ""}${getOptionLabel(branch)}`;
                     }, "") },
                     react_1.default.createElement(ListItemText_1.default, { primaryTypographyProps: primaryTypographyProps, primary: getOptionLabel(option) }))) : (react_1.default.createElement(ListItemText_1.default, { primaryTypographyProps: primaryTypographyProps, primary: getOptionLabel(option) }))));
@@ -332,7 +342,7 @@ const TreeSelect = (props) => {
     }, [
         getOptionLabel,
         classes.optionNode,
-        state.branchPath,
+        branchPath,
         loading,
         enterBranchText,
         exitBranchText,
@@ -371,17 +381,20 @@ const TreeSelect = (props) => {
                             // Do NOT follow branches on blur
                             return;
                         }
-                        else if (state.branchPath.includes(value)) {
+                        else if (branchPath.includes(value)) {
                             upOneBranch(event);
                         }
                         else {
                             // Following branch reset input
                             resetInput(event, "");
-                            setState((state) => ({
-                                ...state,
-                                branchPath: [...state.branchPath, value],
-                            }));
-                            onSelectBranch(value);
+                            const newBranchPath = [...branchPath, value];
+                            if (!isBranchPathControlled) {
+                                setState((state) => ({
+                                    ...state,
+                                    branchPath: newBranchPath,
+                                }));
+                            }
+                            onSelectBranch(value, [...newBranchPath]);
                         }
                     }
                     else {
@@ -439,16 +452,17 @@ const TreeSelect = (props) => {
                 break;
         }
     }, [
-        getOptionLabel,
-        state.branchPath,
-        onChangeProp,
         multiple,
-        setState,
-        onSelectBranch,
+        branchPath,
         upOneBranch,
-        isValueControlled,
-        disableCloseOnSelect,
         resetInput,
+        setState,
+        isBranchPathControlled,
+        onSelectBranch,
+        isValueControlled,
+        onChangeProp,
+        getOptionLabel,
+        disableCloseOnSelect,
     ]);
     const onBlur = react_1.useCallback((...args) => {
         const [event] = args;
@@ -457,10 +471,6 @@ const TreeSelect = (props) => {
         // NOTE: This is not the case when autoSelect is true.  This ambiguous state
         // and behavior is addressed here.  The behavior will be to clear the input.
         if (freeSolo && !autoSelect) {
-            const inputValue = (isInputControlled
-                ? inputValueProp
-                : state.inputValue);
-            const value = isValueControlled ? valueProp : state.value;
             if (inputValue.trim()) {
                 if (multiple || value === null) {
                     resetInput(event, "");
@@ -479,20 +489,16 @@ const TreeSelect = (props) => {
         freeSolo,
         autoSelect,
         onBlurProp,
-        isInputControlled,
-        inputValueProp,
-        state.inputValue,
-        state.value,
-        isValueControlled,
-        valueProp,
+        inputValue,
         multiple,
+        value,
         resetInput,
         getOptionLabel,
     ]);
     const options = react_1.useMemo(() => {
         const options = [];
-        if (state.branchPath.length > 0) {
-            const openBranchNode = lastElm(state.branchPath);
+        if (branchPath.length > 0) {
+            const openBranchNode = lastElm(branchPath);
             options.push(openBranchNode);
             if (loading) {
                 options.push(LOADING_OPTION);
@@ -507,9 +513,9 @@ const TreeSelect = (props) => {
                 return options;
             }, options);
         }
-    }, [state.branchPath, optionsProp, loading]);
+    }, [branchPath, optionsProp, loading]);
     const ListboxProps = react_1.useMemo(() => {
-        if (state.branchPath.length > 0) {
+        if (branchPath.length > 0) {
             return {
                 ...ListboxPropsProp,
                 className: `MuiAutocomplete-listbox ${ListboxPropsProp.className || ""} ${loading ? classes.listBoxWLoadingBranchNode : ""}`,
@@ -520,17 +526,17 @@ const TreeSelect = (props) => {
         }
     }, [
         ListboxPropsProp,
-        state.branchPath,
+        branchPath,
         loading,
         classes.listBoxWLoadingBranchNode,
     ]);
     return (react_1.default.createElement(Autocomplete_1.default, Object.assign({}, autoCompleteProps, { autoSelect: autoSelect, debug: debug, disableClearable: disableClearable, disableCloseOnSelect: disableCloseOnSelect, filterOptions: filterOptions, freeSolo: freeSolo, getOptionDisabled: getOptionDisabled, getOptionLabel: getOptionLabel, 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        getOptionSelected: getOptionSelected, inputValue: isInputControlled ? inputValueProp : state.inputValue, ListboxProps: ListboxProps, loading: loading && state.branchPath.length === 0, loadingText: loadingText, multiple: multiple, onBlur: onBlur, onInputChange: onInputChange, onChange: onChange, onClose: onClose, onOpen: onOpen, open: open !== null && open !== void 0 ? open : state.open, 
+        getOptionSelected: getOptionSelected, inputValue: inputValue, ListboxProps: ListboxProps, loading: loading && branchPath.length === 0, loadingText: loadingText, multiple: multiple, onBlur: onBlur, onInputChange: onInputChange, onChange: onChange, onClose: onClose, onOpen: onOpen, open: open !== null && open !== void 0 ? open : state.open, 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         options: options, renderInput: renderInput, renderOption: renderOption, 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        value: (isValueControlled ? valueProp : state.value) })));
+        value: value })));
 };
 exports.default = TreeSelect;
 //# sourceMappingURL=index.js.map
