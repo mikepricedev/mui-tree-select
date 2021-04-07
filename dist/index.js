@@ -87,7 +87,7 @@ const DEFAULT_LOADING_TEXT = "Loading…";
 const LOADING_OPTION = Symbol();
 const TreeSelect = (props) => {
     const classes = useStyles();
-    const { autoSelect, branchPath: branchPathProp, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, inputValue: inputValueProp, onInputChange: onInputChangeProp, onSelectBranch, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp = {}, loading, loadingText = DEFAULT_LOADING_TEXT, multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, options: optionsProp, textFieldProps = {}, value: valueProp, ...rest } = props;
+    const { autoSelect, branchPath: branchPathProp, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, inputValue: inputValueProp, onInputChange: onInputChangeProp, onBranchChange, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp = {}, loading, loadingText = DEFAULT_LOADING_TEXT, multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, options: optionsProp, textFieldProps = {}, value: valueProp, upBranchOnEsc, ...rest } = props;
     const isBranchPathControlled = branchPathProp !== undefined;
     const isInputControlled = inputValueProp !== undefined;
     const isValueControlled = valueProp !== undefined;
@@ -241,7 +241,7 @@ const TreeSelect = (props) => {
             onInputChangeProp(event, inputValue, "reset");
         }
     }, [isInputControlled, onInputChangeProp, setState]);
-    const upOneBranch = react_1.useCallback((event) => {
+    const upOneBranch = react_1.useCallback((event, reason) => {
         resetInput(event, "");
         const newBranchPath = branchPath.slice(0, branchPath.length - 1);
         if (!isBranchPathControlled) {
@@ -250,8 +250,8 @@ const TreeSelect = (props) => {
                 branchPath: newBranchPath,
             }));
         }
-        onSelectBranch(lastElm(newBranchPath), [...newBranchPath]);
-    }, [isBranchPathControlled, setState, branchPath, onSelectBranch, resetInput]);
+        onBranchChange(event, lastElm(newBranchPath), [...newBranchPath], "up", reason);
+    }, [isBranchPathControlled, setState, branchPath, onBranchChange, resetInput]);
     const onClose = react_1.useCallback((...args) => {
         const [event, reason] = args;
         //onClose should NOT be called by a BranchOption
@@ -259,22 +259,22 @@ const TreeSelect = (props) => {
         if (reason === "select-option") {
             return;
         }
+        else if (reason === "escape" &&
+            branchPath.length > 0 &&
+            upBranchOnEsc) {
+            // Escape goes up One Branch level
+            upOneBranch(event, "escape");
+        }
         else if (onCloseProp) {
             return onCloseProp(...args);
         }
         else {
             switch (reason) {
                 case "escape":
-                    // Escape goes up One Branch level
-                    if (branchPath.length > 0) {
-                        upOneBranch(event);
-                    }
-                    else {
-                        setState((state) => ({
-                            ...state,
-                            open: false,
-                        }));
-                    }
+                    setState((state) => ({
+                        ...state,
+                        open: false,
+                    }));
                     break;
                 case "blur":
                     if (debug) {
@@ -293,7 +293,7 @@ const TreeSelect = (props) => {
                     break;
             }
         }
-    }, [setState, debug, upOneBranch, branchPath, onCloseProp]);
+    }, [onCloseProp, branchPath.length, upBranchOnEsc, debug, upOneBranch]);
     const onOpen = react_1.useMemo(() => {
         if (onOpenProp) {
             return onOpenProp;
@@ -382,7 +382,7 @@ const TreeSelect = (props) => {
                             return;
                         }
                         else if (branchPath.includes(value)) {
-                            upOneBranch(event);
+                            upOneBranch(event, "select-option");
                         }
                         else {
                             // Following branch reset input
@@ -394,7 +394,7 @@ const TreeSelect = (props) => {
                                     branchPath: newBranchPath,
                                 }));
                             }
-                            onSelectBranch(value, [...newBranchPath]);
+                            onBranchChange(event, value, [...newBranchPath], "down", "select-option");
                         }
                     }
                     else {
@@ -458,7 +458,7 @@ const TreeSelect = (props) => {
         resetInput,
         setState,
         isBranchPathControlled,
-        onSelectBranch,
+        onBranchChange,
         isValueControlled,
         onChangeProp,
         getOptionLabel,
