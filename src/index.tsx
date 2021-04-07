@@ -160,7 +160,7 @@ export type TreeSelectProps<
     ) => boolean;
     freeSolo?: FreeSolo;
     loadingText?: string;
-    onBranchSelect: (
+    onBranchChange: (
       event: React.ChangeEvent<Record<string, unknown>>,
       branchOption: BranchOption<T> | undefined,
       branchPath: BranchOption<T>[],
@@ -227,7 +227,7 @@ const TreeSelect = <
     getOptionLabel: getOptionLabelProp,
     inputValue: inputValueProp,
     onInputChange: onInputChangeProp,
-    onBranchSelect,
+    onBranchChange,
     getOptionSelected: getOptionSelectedProp,
     ListboxProps: ListboxPropsProp = {},
     loading,
@@ -471,7 +471,7 @@ const TreeSelect = <
         }));
       }
 
-      onBranchSelect(
+      onBranchChange(
         event,
         lastElm(newBranchPath),
         [...newBranchPath],
@@ -479,7 +479,7 @@ const TreeSelect = <
         reason
       );
     },
-    [isBranchPathControlled, setState, branchPath, onBranchSelect, resetInput]
+    [isBranchPathControlled, setState, branchPath, onBranchChange, resetInput]
   );
 
   const onClose = useCallback<
@@ -741,7 +741,7 @@ const TreeSelect = <
                   }));
                 }
 
-                onBranchSelect(
+                onBranchChange(
                   event,
                   value,
                   [...newBranchPath],
@@ -822,7 +822,7 @@ const TreeSelect = <
       resetInput,
       setState,
       isBranchPathControlled,
-      onBranchSelect,
+      onBranchChange,
       isValueControlled,
       onChangeProp,
       getOptionLabel,

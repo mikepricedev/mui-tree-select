@@ -27,7 +27,7 @@ const Sample: React.FC = () => {
   return (
     <div style={{ width: 350, padding: 16 }}>
       <TreeSelect
-        onSelectBranch={useCallback((branchOption) => {
+        onBranchChange={useCallback((_,branchOption) => {
           if(branchOption) {
             switch(branchOption.option) {
               case "baz":
