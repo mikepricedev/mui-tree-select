@@ -74,7 +74,7 @@ const Sample: React.FC = () => {
     <div style={{ width: 350, padding: 16 }}>
       <TreeSelect<string, false, false, true>
         branchPath={state.single.branchPath}
-        onSelectBranch={(branchOption, branchPath) => {
+        onBranchSelect={(_, branchOption, branchPath) => {
           const options = generateOptions(branchOption);
 
           if (options instanceof Promise) {
@@ -122,7 +122,7 @@ const Sample: React.FC = () => {
       />
       <div style={{ height: "16px" }} />
       <TreeSelect<string, true, false, true>
-        onSelectBranch={(branchOption) => {
+        onBranchSelect={(_, branchOption) => {
           const options = generateOptions(branchOption);
 
           if (options instanceof Promise) {

@@ -1,6 +1,8 @@
 import React, { useCallback, useMemo, useState } from "react";
 import Autocomplete, { AutocompleteProps } from "@material-ui/lab/Autocomplete";
 import {
+  AutocompleteChangeReason,
+  AutocompleteCloseReason,
   createFilterOptions,
   FilterOptionsState,
 } from "@material-ui/lab/useAutocomplete";
@@ -63,6 +65,7 @@ class Option<T> {
   valueOf(): T {
     return this.option;
   }
+
   toString(): string {
     return convertToString(this.option);
   }
@@ -76,6 +79,12 @@ export class BranchOption<T> extends Option<T> {}
 const DEFAULT_LOADING_TEXT = "Loading…" as const;
 
 const LOADING_OPTION = Symbol();
+
+export type BranchSelectReason =
+  | Extract<AutocompleteChangeReason, "select-option">
+  | Extract<AutocompleteCloseReason, "escape">;
+
+export type BranchSelectDirection = "up" | "down";
 
 export type FreeSoloValueMapping<
   FreeSolo extends boolean | undefined
@@ -151,9 +160,12 @@ export type TreeSelectProps<
     ) => boolean;
     freeSolo?: FreeSolo;
     loadingText?: string;
-    onSelectBranch: (
+    onBranchSelect: (
+      event: React.ChangeEvent<Record<string, unknown>>,
       branchOption: BranchOption<T> | undefined,
-      branchPath: BranchOption<T>[]
+      branchPath: BranchOption<T>[],
+      direction: BranchSelectDirection,
+      reason: BranchSelectReason
     ) => void | Promise<void>;
     textFieldProps?: Omit<
       TextFieldProps,
@@ -172,6 +184,11 @@ export type TreeSelectProps<
       | "SelectProps"
       | "value"
     >;
+    /**
+     * Goes up one branch on escape key press; unless at root, then default
+     * MUI Autocomplete behavior.
+     * */
+    upBranchOnEsc?: boolean;
   };
 
 const TreeSelect = <
@@ -210,7 +227,7 @@ const TreeSelect = <
     getOptionLabel: getOptionLabelProp,
     inputValue: inputValueProp,
     onInputChange: onInputChangeProp,
-    onSelectBranch,
+    onBranchSelect,
     getOptionSelected: getOptionSelectedProp,
     ListboxProps: ListboxPropsProp = {},
     loading,
@@ -224,6 +241,7 @@ const TreeSelect = <
     options: optionsProp,
     textFieldProps = {},
     value: valueProp,
+    upBranchOnEsc,
     ...rest
   } = props;
 
@@ -441,7 +459,7 @@ const TreeSelect = <
   );
 
   const upOneBranch = useCallback(
-    (event: Parameters<typeof resetInput>[0]) => {
+    (event: Parameters<typeof resetInput>[0], reason: BranchSelectReason) => {
       resetInput(event, "");
 
       const newBranchPath = branchPath.slice(0, branchPath.length - 1);
@@ -453,9 +471,15 @@ const TreeSelect = <
         }));
       }
 
-      onSelectBranch(lastElm(newBranchPath), [...newBranchPath]);
+      onBranchSelect(
+        event,
+        lastElm(newBranchPath),
+        [...newBranchPath],
+        "up",
+        reason
+      );
     },
-    [isBranchPathControlled, setState, branchPath, onSelectBranch, resetInput]
+    [isBranchPathControlled, setState, branchPath, onBranchSelect, resetInput]
   );
 
   const onClose = useCallback<
@@ -475,20 +499,22 @@ const TreeSelect = <
       // selection. onChange MUST handle,
       if (reason === "select-option") {
         return;
+      } else if (
+        reason === "escape" &&
+        branchPath.length > 0 &&
+        upBranchOnEsc
+      ) {
+        // Escape goes up One Branch level
+        upOneBranch(event, "escape");
       } else if (onCloseProp) {
         return onCloseProp(...args);
       } else {
         switch (reason) {
           case "escape":
-            // Escape goes up One Branch level
-            if (branchPath.length > 0) {
-              upOneBranch(event);
-            } else {
-              setState((state) => ({
-                ...state,
-                open: false,
-              }));
-            }
+            setState((state) => ({
+              ...state,
+              open: false,
+            }));
             break;
           case "blur":
             if (debug) {
@@ -509,7 +535,7 @@ const TreeSelect = <
         }
       }
     },
-    [setState, debug, upOneBranch, branchPath, onCloseProp]
+    [onCloseProp, branchPath.length, upBranchOnEsc, debug, upOneBranch]
   );
 
   const onOpen = useMemo<
@@ -701,7 +727,7 @@ const TreeSelect = <
                 // Do NOT follow branches on blur
                 return;
               } else if (branchPath.includes(value)) {
-                upOneBranch(event);
+                upOneBranch(event, "select-option");
               } else {
                 // Following branch reset input
                 resetInput(event, "");
@@ -715,7 +741,13 @@ const TreeSelect = <
                   }));
                 }
 
-                onSelectBranch(value, [...newBranchPath]);
+                onBranchSelect(
+                  event,
+                  value,
+                  [...newBranchPath],
+                  "down",
+                  "select-option"
+                );
               }
             } else {
               const parsedValue =
@@ -790,7 +822,7 @@ const TreeSelect = <
       resetInput,
       setState,
       isBranchPathControlled,
-      onSelectBranch,
+      onBranchSelect,
       isValueControlled,
       onChangeProp,
       getOptionLabel,
