@@ -1,5 +1,5 @@
 import React from "react";
-import { AutocompleteProps } from "@material-ui/lab/Autocomplete";
+import { AutocompleteProps, AutocompleteRenderInputParams } from "@material-ui/lab/Autocomplete";
 import { AutocompleteChangeReason, AutocompleteCloseReason, FilterOptionsState } from "@material-ui/lab/useAutocomplete";
 import { TextFieldProps } from "@material-ui/core";
 /**
@@ -26,7 +26,8 @@ export declare class BranchOption<T> extends Option<T> {
 export declare type BranchSelectReason = Extract<AutocompleteChangeReason, "select-option"> | Extract<AutocompleteCloseReason, "escape">;
 export declare type BranchSelectDirection = "up" | "down";
 export declare type FreeSoloValueMapping<FreeSolo extends boolean | undefined> = FreeSolo extends true ? FreeSoloValue : never;
-export declare type TreeSelectProps<T, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined> = Pick<AutocompleteProps<T, Multiple, DisableClearable, false>, "defaultValue" | "getOptionSelected"> & Pick<AutocompleteProps<T | FreeSoloValueMapping<FreeSolo>, Multiple, DisableClearable, false>, "onChange" | "renderTags" | "value"> & Pick<AutocompleteProps<T | BranchOption<T>, Multiple, DisableClearable, false>, "getOptionDisabled" | "groupBy" | "onHighlightChange" | "options"> & Pick<AutocompleteProps<T | FreeSoloValueMapping<FreeSolo> | BranchOption<T>, Multiple, DisableClearable, false>, "getOptionLabel"> & Omit<AutocompleteProps<unknown, Multiple, DisableClearable, false>, "defaultValue" | "filterOptions" | "getOptionDisabled" | "getOptionLabel" | "getOptionSelected" | "groupBy" | "onChange" | "onHighlightChange" | "renderTags" | "value" | "filterOptions" | "freeSolo" | "loadingText" | "options" | "renderInput" | "renderOption"> & {
+export declare type TreeSelectTextFieldProps = Omit<TextFieldProps, keyof AutocompleteRenderInputParams | Exclude<keyof AutocompleteProps<unknown, undefined, undefined, undefined>, "placeholder"> | "defaultValue" | "multiline" | "onChange" | "rows" | "rowsMax" | "select" | "SelectProps" | "value">;
+export declare type TreeSelectProps<T, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined> = Pick<AutocompleteProps<T, Multiple, DisableClearable, false>, "defaultValue" | "getOptionSelected"> & Pick<AutocompleteProps<T | FreeSoloValueMapping<FreeSolo>, Multiple, DisableClearable, false>, "onChange" | "renderTags" | "value"> & Pick<AutocompleteProps<T | BranchOption<T>, Multiple, DisableClearable, false>, "getOptionDisabled" | "groupBy" | "onHighlightChange" | "options"> & Pick<AutocompleteProps<T | FreeSoloValueMapping<FreeSolo> | BranchOption<T>, Multiple, DisableClearable, false>, "getOptionLabel"> & Omit<AutocompleteProps<unknown, Multiple, DisableClearable, false>, "defaultValue" | "filterOptions" | "getOptionDisabled" | "getOptionLabel" | "getOptionSelected" | "groupBy" | "onChange" | "onHighlightChange" | "renderTags" | "value" | "filterOptions" | "freeSolo" | "loadingText" | "options" | "renderInput" | "renderOption" | "placeholder"> & {
     branchPath?: BranchOption<T>[];
     enterBranchText?: string;
     exitBranchText?: string;
@@ -37,7 +38,7 @@ export declare type TreeSelectProps<T, Multiple extends boolean | undefined, Dis
     freeSolo?: FreeSolo;
     loadingText?: string;
     onBranchChange: (event: React.ChangeEvent<Record<string, unknown>>, branchOption: BranchOption<T> | undefined, branchPath: BranchOption<T>[], direction: BranchSelectDirection, reason: BranchSelectReason) => void | Promise<void>;
-    textFieldProps?: Omit<TextFieldProps, keyof AutocompleteProps<T | FreeSoloValueMapping<FreeSolo>, Multiple, DisableClearable, false> | "defaultValue" | "multiline" | "onChange" | "rows" | "rowsMax" | "select" | "SelectProps" | "value">;
+    textFieldProps?: TreeSelectTextFieldProps;
     /**
      * Goes up one branch on escape key press; unless at root, then default
      * MUI Autocomplete behavior.

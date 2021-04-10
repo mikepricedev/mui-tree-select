@@ -87,7 +87,7 @@ const DEFAULT_LOADING_TEXT = "Loading…";
 const LOADING_OPTION = Symbol();
 const TreeSelect = (props) => {
     const classes = useStyles();
-    const { autoSelect, branchPath: branchPathProp, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, inputValue: inputValueProp, onInputChange: onInputChangeProp, onBranchChange, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp = {}, loading, loadingText = DEFAULT_LOADING_TEXT, multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, options: optionsProp, textFieldProps = {}, value: valueProp, upBranchOnEsc, ...rest } = props;
+    const { autoSelect, branchPath: branchPathProp, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, inputValue: inputValueProp, onInputChange: onInputChangeProp, onBranchChange, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp, loading, loadingText = DEFAULT_LOADING_TEXT, multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, options: optionsProp, textFieldProps, value: valueProp, upBranchOnEsc, ...rest } = props;
     const isBranchPathControlled = branchPathProp !== undefined;
     const isInputControlled = inputValueProp !== undefined;
     const isValueControlled = valueProp !== undefined;
@@ -517,8 +517,8 @@ const TreeSelect = (props) => {
     const ListboxProps = react_1.useMemo(() => {
         if (branchPath.length > 0) {
             return {
-                ...ListboxPropsProp,
-                className: `MuiAutocomplete-listbox ${ListboxPropsProp.className || ""} ${loading ? classes.listBoxWLoadingBranchNode : ""}`,
+                ...(ListboxPropsProp || {}),
+                className: `MuiAutocomplete-listbox ${(ListboxPropsProp || {}).className || ""} ${loading ? classes.listBoxWLoadingBranchNode : ""}`,
             };
         }
         else {
