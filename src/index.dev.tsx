@@ -1,6 +1,10 @@
 import React, { useMemo, useState } from "react";
 import ReactDOM from "react-dom";
-import TreeSelect, { BranchOption, FreeSoloValue } from "./index";
+import TreeSelect, {
+  BranchOption,
+  FreeSoloValue,
+  TreeSelectTextFieldProps,
+} from "./index";
 
 type TOption = string | BranchOption<string>;
 
@@ -112,7 +116,7 @@ const Sample: React.FC = () => {
         loading={state.single.loading}
         getOptionLabel={getOptionLabel}
         freeSolo
-        textFieldProps={useMemo(
+        textFieldProps={useMemo<TreeSelectTextFieldProps>(
           () => ({
             variant: "outlined",
             label: "Single",
@@ -162,7 +166,7 @@ const Sample: React.FC = () => {
         textFieldProps={useMemo(
           () => ({
             variant: "outlined",
-            label: "Multple",
+            label: "Multiple",
           }),
           []
         )}

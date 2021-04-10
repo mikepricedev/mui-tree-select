@@ -1,5 +1,8 @@
 import React, { useCallback, useMemo, useState } from "react";
-import Autocomplete, { AutocompleteProps } from "@material-ui/lab/Autocomplete";
+import Autocomplete, {
+  AutocompleteProps,
+  AutocompleteRenderInputParams,
+} from "@material-ui/lab/Autocomplete";
 import {
   AutocompleteChangeReason,
   AutocompleteCloseReason,
@@ -90,6 +93,23 @@ export type FreeSoloValueMapping<
   FreeSolo extends boolean | undefined
 > = FreeSolo extends true ? FreeSoloValue : never;
 
+export type TreeSelectTextFieldProps = Omit<
+  TextFieldProps,
+  | keyof AutocompleteRenderInputParams
+  | Exclude<
+      keyof AutocompleteProps<unknown, undefined, undefined, undefined>,
+      "placeholder"
+    >
+  | "defaultValue"
+  | "multiline"
+  | "onChange"
+  | "rows"
+  | "rowsMax"
+  | "select"
+  | "SelectProps"
+  | "value"
+>;
+
 export type TreeSelectProps<
   T,
   Multiple extends boolean | undefined,
@@ -147,6 +167,7 @@ export type TreeSelectProps<
     | "options"
     | "renderInput"
     | "renderOption"
+    | "placeholder"
   > & {
     branchPath?: BranchOption<T>[];
     enterBranchText?: string;
@@ -167,23 +188,7 @@ export type TreeSelectProps<
       direction: BranchSelectDirection,
       reason: BranchSelectReason
     ) => void | Promise<void>;
-    textFieldProps?: Omit<
-      TextFieldProps,
-      | keyof AutocompleteProps<
-          T | FreeSoloValueMapping<FreeSolo>,
-          Multiple,
-          DisableClearable,
-          false
-        >
-      | "defaultValue"
-      | "multiline"
-      | "onChange"
-      | "rows"
-      | "rowsMax"
-      | "select"
-      | "SelectProps"
-      | "value"
-    >;
+    textFieldProps?: TreeSelectTextFieldProps;
     /**
      * Goes up one branch on escape key press; unless at root, then default
      * MUI Autocomplete behavior.
@@ -229,7 +234,7 @@ const TreeSelect = <
     onInputChange: onInputChangeProp,
     onBranchChange,
     getOptionSelected: getOptionSelectedProp,
-    ListboxProps: ListboxPropsProp = {},
+    ListboxProps: ListboxPropsProp,
     loading,
     loadingText = DEFAULT_LOADING_TEXT,
     multiple,
@@ -239,7 +244,7 @@ const TreeSelect = <
     onOpen: onOpenProp,
     open,
     options: optionsProp,
-    textFieldProps = {},
+    textFieldProps,
     value: valueProp,
     upBranchOnEsc,
     ...rest
@@ -910,9 +915,9 @@ const TreeSelect = <
   >(() => {
     if (branchPath.length > 0) {
       return {
-        ...ListboxPropsProp,
+        ...(ListboxPropsProp || {}),
         className: `MuiAutocomplete-listbox ${
-          (ListboxPropsProp as Record<string, string>).className || ""
+          ((ListboxPropsProp || {}) as Record<string, string>).className || ""
         } ${loading ? classes.listBoxWLoadingBranchNode : ""}`,
       };
     } else {
