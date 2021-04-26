@@ -37,6 +37,7 @@ const ListItemIcon_1 = __importDefault(require("@material-ui/core/ListItemIcon")
 const ListItemText_1 = __importDefault(require("@material-ui/core/ListItemText"));
 const Tooltip_1 = __importDefault(require("@material-ui/core/Tooltip"));
 const core_2 = require("@material-ui/core");
+const NULLISH = Symbol("NULLISH");
 const lastElm = (arr) => arr[arr.length - 1];
 const useStyles = styles_1.makeStyles(() => styles_1.createStyles({
     optionNode: {
@@ -242,7 +243,9 @@ const TreeSelect = (props) => {
         }
     }, [isInputControlled, onInputChangeProp, setState]);
     const upOneBranch = react_1.useCallback((event, reason) => {
-        resetInput(event, "");
+        if (multiple || (value !== null && value !== void 0 ? value : NULLISH) === NULLISH) {
+            resetInput(event, "");
+        }
         const newBranchPath = branchPath.slice(0, branchPath.length - 1);
         if (!isBranchPathControlled) {
             setState((state) => ({
@@ -251,7 +254,15 @@ const TreeSelect = (props) => {
             }));
         }
         onBranchChange(event, lastElm(newBranchPath), [...newBranchPath], "up", reason);
-    }, [isBranchPathControlled, setState, branchPath, onBranchChange, resetInput]);
+    }, [
+        isBranchPathControlled,
+        setState,
+        branchPath,
+        multiple,
+        onBranchChange,
+        resetInput,
+        value,
+    ]);
     const onClose = react_1.useCallback((...args) => {
         const [event, reason] = args;
         //onClose should NOT be called by a BranchOption
@@ -365,6 +376,7 @@ const TreeSelect = (props) => {
     }, [isInputControlled, onInputChangeProp, setState]);
     const onChange = react_1.useCallback((...args) => {
         const [event, , reason] = args;
+        const curValue = value;
         switch (reason) {
             case "select-option":
             case "blur":
@@ -386,7 +398,9 @@ const TreeSelect = (props) => {
                         }
                         else {
                             // Following branch reset input
-                            resetInput(event, "");
+                            if (multiple || (curValue !== null && curValue !== void 0 ? curValue : NULLISH) === NULLISH) {
+                                resetInput(event, "");
+                            }
                             const newBranchPath = [...branchPath, value];
                             if (!isBranchPathControlled) {
                                 setState((state) => ({
@@ -463,6 +477,7 @@ const TreeSelect = (props) => {
         onChangeProp,
         getOptionLabel,
         disableCloseOnSelect,
+        value,
     ]);
     const onBlur = react_1.useCallback((...args) => {
         const [event] = args;
