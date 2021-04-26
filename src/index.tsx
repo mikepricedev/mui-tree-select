@@ -10,7 +10,7 @@ import {
   FilterOptionsState,
 } from "@material-ui/lab/useAutocomplete";
 import Skeleton from "@material-ui/lab/Skeleton";
-import { Box, TextField, TextFieldProps } from "@material-ui/core";
+import { Box, InputProps, TextField, TextFieldProps } from "@material-ui/core";
 import { makeStyles, createStyles } from "@material-ui/styles";
 import { createMuiTheme } from "@material-ui/core/styles";
 import ChevronRightIcon from "@material-ui/icons/ChevronRight";
@@ -110,7 +110,9 @@ export type TreeSelectTextFieldProps = Omit<
   | "select"
   | "SelectProps"
   | "value"
->;
+> & {
+  InputProps?: Omit<InputProps, keyof TextFieldProps["InputProps"]>;
+};
 
 export type TreeSelectProps<
   T,
@@ -583,7 +585,16 @@ const TreeSelect = <
     >
   >(
     (params) => {
-      return <TextField {...textFieldProps} {...params}></TextField>;
+      const props = {
+        ...textFieldProps,
+        ...params,
+        InputProps: {
+          ...(textFieldProps?.InputProps || {}),
+          ...(params?.InputProps || {}),
+        },
+      };
+
+      return <TextField {...props}></TextField>;
     },
     [textFieldProps]
   );
