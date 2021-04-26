@@ -23,6 +23,8 @@ import ListItemText, {
 import Tooltip from "@material-ui/core/Tooltip";
 import { Typography } from "@material-ui/core";
 
+const NULLISH = Symbol("NULLISH");
+
 const lastElm = <T extends unknown>(arr: T[]): T | undefined =>
   arr[arr.length - 1];
 
@@ -465,7 +467,9 @@ const TreeSelect = <
 
   const upOneBranch = useCallback(
     (event: Parameters<typeof resetInput>[0], reason: BranchSelectReason) => {
-      resetInput(event, "");
+      if (multiple || (value ?? NULLISH) === NULLISH) {
+        resetInput(event, "");
+      }
 
       const newBranchPath = branchPath.slice(0, branchPath.length - 1);
 
@@ -484,7 +488,15 @@ const TreeSelect = <
         reason
       );
     },
-    [isBranchPathControlled, setState, branchPath, onBranchChange, resetInput]
+    [
+      isBranchPathControlled,
+      setState,
+      branchPath,
+      multiple,
+      onBranchChange,
+      resetInput,
+      value,
+    ]
   );
 
   const onClose = useCallback<
@@ -716,6 +728,8 @@ const TreeSelect = <
     (...args) => {
       const [event, , reason] = args;
 
+      const curValue = value;
+
       switch (reason) {
         case "select-option":
         case "blur":
@@ -735,7 +749,9 @@ const TreeSelect = <
                 upOneBranch(event, "select-option");
               } else {
                 // Following branch reset input
-                resetInput(event, "");
+                if (multiple || (curValue ?? NULLISH) === NULLISH) {
+                  resetInput(event, "");
+                }
 
                 const newBranchPath = [...branchPath, value];
 
@@ -832,6 +848,7 @@ const TreeSelect = <
       onChangeProp,
       getOptionLabel,
       disableCloseOnSelect,
+      value,
     ]
   );
 
