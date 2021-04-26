@@ -319,7 +319,15 @@ const TreeSelect = (props) => {
         }
     }, [setState, onOpenProp]);
     const renderInput = react_1.useCallback((params) => {
-        return react_1.default.createElement(core_1.TextField, Object.assign({}, textFieldProps, params));
+        const props = {
+            ...textFieldProps,
+            ...params,
+            InputProps: {
+                ...((textFieldProps === null || textFieldProps === void 0 ? void 0 : textFieldProps.InputProps) || {}),
+                ...((params === null || params === void 0 ? void 0 : params.InputProps) || {}),
+            },
+        };
+        return react_1.default.createElement(core_1.TextField, Object.assign({}, props));
     }, [textFieldProps]);
     const renderOption = react_1.useCallback((option) => {
         if (option === LOADING_OPTION) {
