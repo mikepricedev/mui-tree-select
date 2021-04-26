@@ -266,18 +266,18 @@ const TreeSelect = <
   const [state, setState] = useState<TreeSelectState>({
     branchPath: [],
     inputValue: (() => {
-      if (
-        defaultValue !== undefined &&
-        !multiple &&
-        !isValueControlled &&
-        !isInputControlled
-      ) {
-        return getOptionLabelProp
-          ? getOptionLabelProp(defaultValue as T)
-          : convertToString(defaultValue);
-      } else {
-        return "";
+      if (!multiple && !isInputControlled) {
+        if ((valueProp ?? NULLISH) !== NULLISH) {
+          return getOptionLabelProp
+            ? getOptionLabelProp(valueProp as T)
+            : convertToString(valueProp);
+        } else if ((defaultValue ?? NULLISH) !== NULLISH) {
+          return getOptionLabelProp
+            ? getOptionLabelProp(defaultValue as T)
+            : convertToString(defaultValue);
+        }
       }
+      return "";
     })(),
     open: false,
     value: (() => {

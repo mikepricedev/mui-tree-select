@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import ReactDOM from "react-dom";
 import TreeSelect, {
   BranchOption,
@@ -122,6 +122,19 @@ const Sample: React.FC = () => {
             label: "Single",
           }),
           []
+        )}
+        value={state.single.value}
+        onChange={useCallback(
+          (_, value) => {
+            setState((state) => ({
+              ...state,
+              single: {
+                ...state.single,
+                value,
+              },
+            }));
+          },
+          [setState]
         )}
       />
       <div style={{ height: "16px" }} />
