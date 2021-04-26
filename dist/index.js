@@ -96,17 +96,19 @@ const TreeSelect = (props) => {
     const [state, setState] = react_1.useState({
         branchPath: [],
         inputValue: (() => {
-            if (defaultValue !== undefined &&
-                !multiple &&
-                !isValueControlled &&
-                !isInputControlled) {
-                return getOptionLabelProp
-                    ? getOptionLabelProp(defaultValue)
-                    : convertToString(defaultValue);
+            if (!multiple && !isInputControlled) {
+                if ((valueProp !== null && valueProp !== void 0 ? valueProp : NULLISH) !== NULLISH) {
+                    return getOptionLabelProp
+                        ? getOptionLabelProp(valueProp)
+                        : convertToString(valueProp);
+                }
+                else if ((defaultValue !== null && defaultValue !== void 0 ? defaultValue : NULLISH) !== NULLISH) {
+                    return getOptionLabelProp
+                        ? getOptionLabelProp(defaultValue)
+                        : convertToString(defaultValue);
+                }
             }
-            else {
-                return "";
-            }
+            return "";
         })(),
         open: false,
         value: (() => {
