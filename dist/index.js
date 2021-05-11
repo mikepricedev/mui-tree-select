@@ -145,7 +145,9 @@ const TreeSelect = (props) => {
             return true;
         }
         else if (getOptionDisabledProp) {
-            return getOptionDisabledProp(option);
+            return getOptionDisabledProp(option instanceof Option && !(option instanceof BranchOption)
+                ? option.option
+                : option);
         }
         else {
             return false;
