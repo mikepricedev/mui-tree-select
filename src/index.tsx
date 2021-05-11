@@ -79,7 +79,7 @@ class Option<T> {
 /**
  * Indicates an option is a branch node.
  */
-export class BranchOption<T> extends Option<T> {}
+export class BranchOption<TBranchOption> extends Option<TBranchOption> {}
 
 const DEFAULT_LOADING_TEXT = "Loading…" as const;
 
@@ -116,6 +116,7 @@ export type TreeSelectTextFieldProps = Omit<
 
 export type TreeSelectProps<
   T,
+  TBranchOption,
   Multiple extends boolean | undefined,
   DisableClearable extends boolean | undefined,
   FreeSolo extends boolean | undefined
@@ -136,13 +137,18 @@ export type TreeSelectProps<
   > &
   // T and BranchOptions
   Pick<
-    AutocompleteProps<T | BranchOption<T>, Multiple, DisableClearable, false>,
+    AutocompleteProps<
+      T | BranchOption<TBranchOption>,
+      Multiple,
+      DisableClearable,
+      false
+    >,
     "getOptionDisabled" | "groupBy" | "onHighlightChange" | "options"
   > &
   // T, FreeSoloValue, and BranchOptions
   Pick<
     AutocompleteProps<
-      T | FreeSoloValueMapping<FreeSolo> | BranchOption<T>,
+      T | FreeSoloValueMapping<FreeSolo> | BranchOption<TBranchOption>,
       Multiple,
       DisableClearable,
       false
@@ -173,22 +179,22 @@ export type TreeSelectProps<
     | "renderOption"
     | "placeholder"
   > & {
-    branchPath?: BranchOption<T>[];
+    branchPath?: BranchOption<TBranchOption>[];
     enterBranchText?: string;
     exitBranchText?: string;
     /**
      * @returns `true` to keep option and `false` to filter.
      */
     filterOptions?: (
-      option: T | BranchOption<T>,
-      state: FilterOptionsState<T | BranchOption<T>>
+      option: T | BranchOption<TBranchOption>,
+      state: FilterOptionsState<T | BranchOption<TBranchOption>>
     ) => boolean;
     freeSolo?: FreeSolo;
     loadingText?: string;
     onBranchChange: (
       event: React.ChangeEvent<Record<string, unknown>>,
-      branchOption: BranchOption<T> | undefined,
-      branchPath: BranchOption<T>[],
+      branchOption: BranchOption<TBranchOption> | undefined,
+      branchPath: BranchOption<TBranchOption>[],
       direction: BranchSelectDirection,
       reason: BranchSelectReason
     ) => void | Promise<void>;
@@ -202,18 +208,22 @@ export type TreeSelectProps<
 
 const TreeSelect = <
   T,
+  TBranchOption,
   Multiple extends boolean | undefined,
   DisableClearable extends boolean | undefined,
   FreeSolo extends boolean | undefined
 >(
-  props: TreeSelectProps<T, Multiple, DisableClearable, FreeSolo>
+  props: TreeSelectProps<T, TBranchOption, Multiple, DisableClearable, FreeSolo>
 ): JSX.Element => {
-  type TOption = BranchOption<T> | Option<T> | typeof LOADING_OPTION;
+  type TOption =
+    | BranchOption<TBranchOption>
+    | Option<T>
+    | typeof LOADING_OPTION;
 
   type TValue = typeof props.value;
 
   interface TreeSelectState {
-    branchPath: BranchOption<T>[];
+    branchPath: BranchOption<TBranchOption>[];
     inputValue: string;
     open: boolean;
     value: TValue;
@@ -295,7 +305,7 @@ const TreeSelect = <
 
   const branchPath = (isBranchPathControlled
     ? branchPathProp
-    : state.branchPath) as BranchOption<T>[];
+    : state.branchPath) as BranchOption<TBranchOption>[];
 
   const inputValue = (isInputControlled
     ? inputValueProp
@@ -315,7 +325,11 @@ const TreeSelect = <
       } else if (loading) {
         return true;
       } else if (getOptionDisabledProp) {
-        return getOptionDisabledProp(option);
+        return getOptionDisabledProp(
+          option instanceof Option && !(option instanceof BranchOption)
+            ? option.option
+            : option
+        );
       } else {
         return false;
       }
@@ -374,17 +388,19 @@ const TreeSelect = <
   const filterOptions = useMemo<
     (
       options: TOption[],
-      filterOptionsState: FilterOptionsState<Option<T> | BranchOption<T>>
+      filterOptionsState: FilterOptionsState<
+        Option<T> | BranchOption<TBranchOption>
+      >
     ) => TOption[]
   >(() => {
     const filterOptions = filterOptionsProp
       ? (
-          options: (Option<T> | BranchOption<T>)[],
-          state: FilterOptionsState<Option<T> | BranchOption<T>>
+          options: (Option<T> | BranchOption<TBranchOption>)[],
+          state: FilterOptionsState<Option<T> | BranchOption<TBranchOption>>
         ) => {
           const newState = {
             ...state,
-            getOptionLabel: (option: T | BranchOption<T>) =>
+            getOptionLabel: (option: T | BranchOption<TBranchOption>) =>
               state.getOptionLabel(
                 option instanceof BranchOption ? option : new Option(option)
               ),
@@ -397,14 +413,16 @@ const TreeSelect = <
             )
           );
         }
-      : createFilterOptions<Option<T> | BranchOption<T>>({
+      : createFilterOptions<Option<T> | BranchOption<TBranchOption>>({
           stringify: getOptionLabel,
         });
 
     // Parent BranchOption and LOADING_OPTION are NEVER filtered
     return (
       options: TOption[],
-      filterOptionsState: FilterOptionsState<Option<T> | BranchOption<T>>
+      filterOptionsState: FilterOptionsState<
+        Option<T> | BranchOption<TBranchOption>
+      >
     ) => {
       const [staticOpts, filteredOpts] = options.reduce(
         (opts, opt) => {
@@ -427,8 +445,8 @@ const TreeSelect = <
           return opts;
         },
         [[], []] as [
-          (BranchOption<T> | typeof LOADING_OPTION)[],
-          (Option<T> | BranchOption<T>)[]
+          (BranchOption<TBranchOption> | typeof LOADING_OPTION)[],
+          (Option<T> | BranchOption<TBranchOption>)[]
         ]
       );
 
@@ -914,7 +932,7 @@ const TreeSelect = <
     if (branchPath.length > 0) {
       const openBranchNode = lastElm(branchPath);
 
-      options.push(openBranchNode as BranchOption<T>);
+      options.push(openBranchNode as BranchOption<TBranchOption>);
 
       if (loading) {
         options.push(LOADING_OPTION);

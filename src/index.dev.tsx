@@ -6,14 +6,14 @@ import TreeSelect, {
   TreeSelectTextFieldProps,
 } from "./index";
 
-type TOption = string | BranchOption<string>;
+type TOption = string | BranchOption<{ label: string }>;
 
 const generateOptions = (
-  branchOption?: BranchOption<string>,
+  branchOption?: BranchOption<{ label: string }>,
   randomAsync = true
 ): TOption[] | Promise<TOption[]> => {
   const depth = branchOption
-    ? Number.parseInt(branchOption.option.split(":")[0]) + 1
+    ? Number.parseInt(branchOption.option.label.split(":")[0]) + 1
     : 0;
 
   const options: TOption[] = [];
@@ -21,7 +21,7 @@ const generateOptions = (
   for (let i = 0, len = Math.ceil(Math.random() * 10); i < len; i++) {
     const option = `${depth}:${i}`;
 
-    options.push(new BranchOption(option), option);
+    options.push(new BranchOption({ label: option }), option);
   }
 
   return randomAsync && Math.random() > 0.5
@@ -35,7 +35,7 @@ const generateOptions = (
 
 const getOptionLabel = (option: TOption | FreeSoloValue): string => {
   if (option instanceof BranchOption) {
-    return `Branch ${option.option}`;
+    return `Branch ${option.option.label}`;
   } else if (option instanceof FreeSoloValue) {
     return `${option}`;
   } else {
@@ -43,7 +43,10 @@ const getOptionLabel = (option: TOption | FreeSoloValue): string => {
   }
 };
 
-const defaultBranchPath = [new BranchOption("0:5"), new BranchOption("1:2")];
+const defaultBranchPath = [
+  new BranchOption({ label: "0:5" }),
+  new BranchOption({ label: "1:2" }),
+];
 
 const Sample: React.FC = () => {
   const [state, setState] = useState<{
@@ -51,13 +54,13 @@ const Sample: React.FC = () => {
       value: string | FreeSoloValue | null;
       options: TOption[];
       loading: boolean;
-      branchPath: BranchOption<string>[];
+      branchPath: BranchOption<{ label: string }>[];
     };
     multiple: {
       value: (string | FreeSoloValue)[];
       options: TOption[];
       loading: boolean;
-      branchPath: BranchOption<string>[];
+      branchPath: BranchOption<{ label: string }>[];
     };
   }>({
     single: {
@@ -76,7 +79,7 @@ const Sample: React.FC = () => {
 
   return (
     <div style={{ width: 350, padding: 16 }}>
-      <TreeSelect<string, false, false, true>
+      <TreeSelect<string, { label: string }, false, false, true>
         branchPath={state.single.branchPath}
         onBranchChange={(_, branchOption, branchPath) => {
           const options = generateOptions(branchOption);
@@ -138,7 +141,7 @@ const Sample: React.FC = () => {
         )}
       />
       <div style={{ height: "16px" }} />
-      <TreeSelect<string, true, false, true>
+      <TreeSelect<string, { label: string }, true, false, true>
         onBranchChange={(_, branchOption) => {
           const options = generateOptions(branchOption);
 
