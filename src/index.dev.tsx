@@ -1,10 +1,6 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 import ReactDOM from "react-dom";
-import TreeSelect, {
-  BranchOption,
-  FreeSoloValue,
-  TreeSelectTextFieldProps,
-} from "./index";
+import TreeSelect, { BranchOption, FreeSoloValue, defaultInput } from "./index";
 
 type TOption = string | BranchOption<{ label: string }>;
 
@@ -119,11 +115,13 @@ const Sample: React.FC = () => {
         loading={state.single.loading}
         getOptionLabel={getOptionLabel}
         freeSolo
-        textFieldProps={useMemo<TreeSelectTextFieldProps>(
-          () => ({
-            variant: "outlined",
-            label: "Single",
-          }),
+        renderInput={useCallback(
+          (params) =>
+            defaultInput({
+              ...params,
+              variant: "outlined",
+              label: "Single",
+            }),
           []
         )}
         value={state.single.value}
@@ -179,12 +177,13 @@ const Sample: React.FC = () => {
         getOptionLabel={getOptionLabel}
         freeSolo
         multiple
-        textFieldProps={useCallback(
-          (params) => ({
-            ...params,
-            variant: "outlined",
-            label: "Multiple",
-          }),
+        renderInput={useCallback(
+          (params) =>
+            defaultInput({
+              ...params,
+              variant: "outlined",
+              label: "Multiple",
+            }),
           []
         )}
       />

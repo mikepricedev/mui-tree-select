@@ -10,7 +10,7 @@ import {
   FilterOptionsState,
 } from "@material-ui/lab/useAutocomplete";
 import Skeleton from "@material-ui/lab/Skeleton";
-import { Box, InputProps, TextField, TextFieldProps } from "@material-ui/core";
+import { Box, TextField, TextFieldProps } from "@material-ui/core";
 import { makeStyles, createStyles } from "@material-ui/styles";
 import { createMuiTheme } from "@material-ui/core/styles";
 import ChevronRightIcon from "@material-ui/icons/ChevronRight";
@@ -85,6 +85,13 @@ const DEFAULT_LOADING_TEXT = "Loading…" as const;
 
 const LOADING_OPTION = Symbol();
 
+/**
+ * Renders a TextField
+ */
+export const defaultInput = (
+  params: TextFieldProps | AutocompleteRenderInputParams
+): JSX.Element => <TextField {...params}></TextField>;
+
 export type BranchSelectReason =
   | Extract<AutocompleteChangeReason, "select-option">
   | Extract<AutocompleteCloseReason, "escape">;
@@ -94,29 +101,6 @@ export type BranchSelectDirection = "up" | "down";
 export type FreeSoloValueMapping<
   FreeSolo extends boolean | undefined
 > = FreeSolo extends true ? FreeSoloValue : never;
-
-export type TreeSelectTextFieldProps =
-  | (Omit<
-      TextFieldProps,
-      | keyof AutocompleteRenderInputParams
-      | Exclude<
-          keyof AutocompleteProps<unknown, undefined, undefined, undefined>,
-          "placeholder"
-        >
-      | "defaultValue"
-      | "multiline"
-      | "onChange"
-      | "rows"
-      | "rowsMax"
-      | "select"
-      | "SelectProps"
-      | "value"
-    > & {
-      InputProps?: Omit<InputProps, keyof TextFieldProps["InputProps"]>;
-    })
-  | ((
-      params: AutocompleteRenderInputParams
-    ) => AutocompleteRenderInputParams & TextFieldProps);
 
 export type TreeSelectProps<
   T,
@@ -183,6 +167,12 @@ export type TreeSelectProps<
     | "renderInput"
     | "renderOption"
     | "placeholder"
+  > &
+  Partial<
+    Pick<
+      AutocompleteProps<unknown, Multiple, DisableClearable, false>,
+      "renderInput"
+    >
   > & {
     branchPath?: BranchOption<TBranchOption>[];
     enterBranchText?: string;
@@ -204,7 +194,6 @@ export type TreeSelectProps<
       direction: BranchSelectDirection,
       reason: BranchSelectReason
     ) => void | Promise<void>;
-    textFieldProps?: TreeSelectTextFieldProps;
     /**
      * Goes up one branch on escape key press; unless at root, then default
      * MUI Autocomplete behavior.
@@ -264,7 +253,10 @@ const TreeSelect = <
     onOpen: onOpenProp,
     open,
     options: optionsProp,
-    textFieldProps,
+    /**
+     * Renders a TextField
+     */
+    renderInput = defaultInput,
     value: valueProp,
     upBranchOnEsc,
     ...rest
@@ -434,7 +426,7 @@ const TreeSelect = <
         (opts, opt) => {
           const [staticOpts, filteredOpts] = opts;
 
-          // LOADING_OPTION and NO_OPTIONS_OPTION are NEVER filtered
+          // LOADING_OPTION is NEVER filtered
           if (opt === LOADING_OPTION) {
             staticOpts.push(opt);
           } else if (opt instanceof BranchOption) {
@@ -444,6 +436,8 @@ const TreeSelect = <
             } else {
               filteredOpts.push(opt);
             }
+          } else {
+            filteredOpts.push(opt);
           }
 
           return opts;
@@ -595,34 +589,6 @@ const TreeSelect = <
       };
     }
   }, [setState, onOpenProp]);
-
-  const renderInput = useCallback<
-    NonNullable<
-      AutocompleteProps<
-        unknown,
-        Multiple,
-        DisableClearable,
-        FreeSolo
-      >["renderInput"]
-    >
-  >(
-    (params) => {
-      const props =
-        typeof textFieldProps === "function"
-          ? textFieldProps(params)
-          : {
-              ...textFieldProps,
-              ...params,
-              InputProps: {
-                ...(textFieldProps?.InputProps || {}),
-                ...(params?.InputProps || {}),
-              },
-            };
-
-      return <TextField {...props}></TextField>;
-    },
-    [textFieldProps]
-  );
 
   const renderOption = useCallback<
     NonNullable<
