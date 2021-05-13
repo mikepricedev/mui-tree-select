@@ -167,12 +167,6 @@ export type TreeSelectProps<
     | "renderInput"
     | "renderOption"
     | "placeholder"
-  > &
-  Partial<
-    Pick<
-      AutocompleteProps<unknown, Multiple, DisableClearable, false>,
-      "renderInput"
-    >
   > & {
     branchPath?: BranchOption<TBranchOption>[];
     enterBranchText?: string;
@@ -194,6 +188,9 @@ export type TreeSelectProps<
       direction: BranchSelectDirection,
       reason: BranchSelectReason
     ) => void | Promise<void>;
+    renderInput?: (
+      params: AutocompleteRenderInputParams | TextFieldProps
+    ) => JSX.Element;
     /**
      * Goes up one branch on escape key press; unless at root, then default
      * MUI Autocomplete behavior.
