@@ -26,10 +26,10 @@ export declare class BranchOption<TBranchOption> extends Option<TBranchOption> {
 export declare type BranchSelectReason = Extract<AutocompleteChangeReason, "select-option"> | Extract<AutocompleteCloseReason, "escape">;
 export declare type BranchSelectDirection = "up" | "down";
 export declare type FreeSoloValueMapping<FreeSolo extends boolean | undefined> = FreeSolo extends true ? FreeSoloValue : never;
-export declare type TreeSelectTextFieldProps = Omit<TextFieldProps, keyof AutocompleteRenderInputParams | Exclude<keyof AutocompleteProps<unknown, undefined, undefined, undefined>, "placeholder"> | "defaultValue" | "multiline" | "onChange" | "rows" | "rowsMax" | "select" | "SelectProps" | "value"> & {
+export declare type TreeSelectTextFieldProps = (Omit<TextFieldProps, keyof AutocompleteRenderInputParams | Exclude<keyof AutocompleteProps<unknown, undefined, undefined, undefined>, "placeholder"> | "defaultValue" | "multiline" | "onChange" | "rows" | "rowsMax" | "select" | "SelectProps" | "value"> & {
     InputProps?: Omit<InputProps, keyof TextFieldProps["InputProps"]>;
-};
-export declare type TreeSelectProps<T, TBranchOption, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined> = Pick<AutocompleteProps<T, Multiple, DisableClearable, false>, "defaultValue" | "getOptionSelected"> & Pick<AutocompleteProps<T | FreeSoloValueMapping<FreeSolo>, Multiple, DisableClearable, false>, "onChange" | "renderTags" | "value"> & Pick<AutocompleteProps<T | BranchOption<TBranchOption>, Multiple, DisableClearable, false>, "getOptionDisabled" | "groupBy" | "onHighlightChange" | "options"> & Pick<AutocompleteProps<T | FreeSoloValueMapping<FreeSolo> | BranchOption<TBranchOption>, Multiple, DisableClearable, false>, "getOptionLabel"> & Omit<AutocompleteProps<unknown, Multiple, DisableClearable, false>, "defaultValue" | "filterOptions" | "getOptionDisabled" | "getOptionLabel" | "getOptionSelected" | "groupBy" | "onChange" | "onHighlightChange" | "renderTags" | "value" | "filterOptions" | "freeSolo" | "loadingText" | "options" | "renderInput" | "renderOption" | "placeholder"> & {
+}) | ((params: AutocompleteRenderInputParams) => AutocompleteRenderInputParams & TextFieldProps);
+export declare type TreeSelectProps<T, TBranchOption, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined> = Pick<AutocompleteProps<T, Multiple, DisableClearable, false>, "defaultValue" | "getOptionSelected"> & Pick<AutocompleteProps<T | FreeSoloValueMapping<FreeSolo>, Multiple, DisableClearable, false>, "onChange" | "renderTags" | "value"> & Pick<AutocompleteProps<T | BranchOption<TBranchOption>, Multiple, DisableClearable, false>, "getOptionDisabled" | "groupBy" | "onHighlightChange" | "options"> & Pick<AutocompleteProps<T | FreeSoloValueMapping<FreeSolo> | BranchOption<TBranchOption>, Multiple, DisableClearable, false>, "getOptionLabel"> & Omit<AutocompleteProps<unknown, Multiple, DisableClearable, false>, "defaultValue" | "filterOptions" | "getOptionDisabled" | "getOptionLabel" | "getOptionSelected" | "groupBy" | "onChange" | "onHighlightChange" | "renderTags" | "value" | "filterOptions" | "freeSolo" | "loadingText" | "noOptionsText" | "options" | "renderInput" | "renderOption" | "placeholder"> & {
     branchPath?: BranchOption<TBranchOption>[];
     enterBranchText?: string;
     exitBranchText?: string;
@@ -39,6 +39,7 @@ export declare type TreeSelectProps<T, TBranchOption, Multiple extends boolean |
     filterOptions?: (option: T | BranchOption<TBranchOption>, state: FilterOptionsState<T | BranchOption<TBranchOption>>) => boolean;
     freeSolo?: FreeSolo;
     loadingText?: string;
+    noOptionsText?: string;
     onBranchChange: (event: React.ChangeEvent<Record<string, unknown>>, branchOption: BranchOption<TBranchOption> | undefined, branchPath: BranchOption<TBranchOption>[], direction: BranchSelectDirection, reason: BranchSelectReason) => void | Promise<void>;
     textFieldProps?: TreeSelectTextFieldProps;
     /**

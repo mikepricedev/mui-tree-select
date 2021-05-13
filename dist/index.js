@@ -211,7 +211,7 @@ const TreeSelect = (props) => {
         return (options, filterOptionsState) => {
             const [staticOpts, filteredOpts] = options.reduce((opts, opt) => {
                 const [staticOpts, filteredOpts] = opts;
-                // LOADING_OPTION are NEVER filtered
+                // LOADING_OPTION and NO_OPTIONS_OPTION are NEVER filtered
                 if (opt === LOADING_OPTION) {
                     staticOpts.push(opt);
                 }
@@ -223,9 +223,6 @@ const TreeSelect = (props) => {
                     else {
                         filteredOpts.push(opt);
                     }
-                }
-                else {
-                    filteredOpts.push(opt);
                 }
                 return opts;
             }, [[], []]);
@@ -323,14 +320,16 @@ const TreeSelect = (props) => {
         }
     }, [setState, onOpenProp]);
     const renderInput = react_1.useCallback((params) => {
-        const props = {
-            ...textFieldProps,
-            ...params,
-            InputProps: {
-                ...((textFieldProps === null || textFieldProps === void 0 ? void 0 : textFieldProps.InputProps) || {}),
-                ...((params === null || params === void 0 ? void 0 : params.InputProps) || {}),
-            },
-        };
+        const props = typeof textFieldProps === "function"
+            ? textFieldProps(params)
+            : {
+                ...textFieldProps,
+                ...params,
+                InputProps: {
+                    ...((textFieldProps === null || textFieldProps === void 0 ? void 0 : textFieldProps.InputProps) || {}),
+                    ...((params === null || params === void 0 ? void 0 : params.InputProps) || {}),
+                },
+            };
         return react_1.default.createElement(core_1.TextField, Object.assign({}, props));
     }, [textFieldProps]);
     const renderOption = react_1.useCallback((option) => {
