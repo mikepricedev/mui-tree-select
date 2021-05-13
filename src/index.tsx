@@ -95,24 +95,28 @@ export type FreeSoloValueMapping<
   FreeSolo extends boolean | undefined
 > = FreeSolo extends true ? FreeSoloValue : never;
 
-export type TreeSelectTextFieldProps = Omit<
-  TextFieldProps,
-  | keyof AutocompleteRenderInputParams
-  | Exclude<
-      keyof AutocompleteProps<unknown, undefined, undefined, undefined>,
-      "placeholder"
-    >
-  | "defaultValue"
-  | "multiline"
-  | "onChange"
-  | "rows"
-  | "rowsMax"
-  | "select"
-  | "SelectProps"
-  | "value"
-> & {
-  InputProps?: Omit<InputProps, keyof TextFieldProps["InputProps"]>;
-};
+export type TreeSelectTextFieldProps =
+  | (Omit<
+      TextFieldProps,
+      | keyof AutocompleteRenderInputParams
+      | Exclude<
+          keyof AutocompleteProps<unknown, undefined, undefined, undefined>,
+          "placeholder"
+        >
+      | "defaultValue"
+      | "multiline"
+      | "onChange"
+      | "rows"
+      | "rowsMax"
+      | "select"
+      | "SelectProps"
+      | "value"
+    > & {
+      InputProps?: Omit<InputProps, keyof TextFieldProps["InputProps"]>;
+    })
+  | ((
+      params: AutocompleteRenderInputParams
+    ) => AutocompleteRenderInputParams & TextFieldProps);
 
 export type TreeSelectProps<
   T,
@@ -174,6 +178,7 @@ export type TreeSelectProps<
     | "filterOptions"
     | "freeSolo"
     | "loadingText"
+    | "noOptionsText"
     | "options"
     | "renderInput"
     | "renderOption"
@@ -191,6 +196,7 @@ export type TreeSelectProps<
     ) => boolean;
     freeSolo?: FreeSolo;
     loadingText?: string;
+    noOptionsText?: string;
     onBranchChange: (
       event: React.ChangeEvent<Record<string, unknown>>,
       branchOption: BranchOption<TBranchOption> | undefined,
@@ -428,7 +434,7 @@ const TreeSelect = <
         (opts, opt) => {
           const [staticOpts, filteredOpts] = opts;
 
-          // LOADING_OPTION are NEVER filtered
+          // LOADING_OPTION and NO_OPTIONS_OPTION are NEVER filtered
           if (opt === LOADING_OPTION) {
             staticOpts.push(opt);
           } else if (opt instanceof BranchOption) {
@@ -438,8 +444,6 @@ const TreeSelect = <
             } else {
               filteredOpts.push(opt);
             }
-          } else {
-            filteredOpts.push(opt);
           }
 
           return opts;
@@ -603,14 +607,17 @@ const TreeSelect = <
     >
   >(
     (params) => {
-      const props = {
-        ...textFieldProps,
-        ...params,
-        InputProps: {
-          ...(textFieldProps?.InputProps || {}),
-          ...(params?.InputProps || {}),
-        },
-      };
+      const props =
+        typeof textFieldProps === "function"
+          ? textFieldProps(params)
+          : {
+              ...textFieldProps,
+              ...params,
+              InputProps: {
+                ...(textFieldProps?.InputProps || {}),
+                ...(params?.InputProps || {}),
+              },
+            };
 
       return <TextField {...props}></TextField>;
     },

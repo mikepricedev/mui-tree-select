@@ -179,8 +179,9 @@ const Sample: React.FC = () => {
         getOptionLabel={getOptionLabel}
         freeSolo
         multiple
-        textFieldProps={useMemo(
-          () => ({
+        textFieldProps={useCallback(
+          (params) => ({
+            ...params,
             variant: "outlined",
             label: "Multiple",
           }),
