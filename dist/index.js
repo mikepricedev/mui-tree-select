@@ -22,7 +22,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BranchOption = exports.FreeSoloValue = void 0;
+exports.defaultInput = exports.BranchOption = exports.FreeSoloValue = void 0;
 const react_1 = __importStar(require("react"));
 const Autocomplete_1 = __importDefault(require("@material-ui/lab/Autocomplete"));
 const useAutocomplete_1 = require("@material-ui/lab/useAutocomplete");
@@ -86,9 +86,18 @@ class BranchOption extends Option {
 exports.BranchOption = BranchOption;
 const DEFAULT_LOADING_TEXT = "Loading…";
 const LOADING_OPTION = Symbol();
+/**
+ * Renders a TextField
+ */
+const defaultInput = (params) => react_1.default.createElement(core_1.TextField, Object.assign({}, params));
+exports.defaultInput = defaultInput;
 const TreeSelect = (props) => {
     const classes = useStyles();
-    const { autoSelect, branchPath: branchPathProp, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, inputValue: inputValueProp, onInputChange: onInputChangeProp, onBranchChange, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp, loading, loadingText = DEFAULT_LOADING_TEXT, multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, options: optionsProp, textFieldProps, value: valueProp, upBranchOnEsc, ...rest } = props;
+    const { autoSelect, branchPath: branchPathProp, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, inputValue: inputValueProp, onInputChange: onInputChangeProp, onBranchChange, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp, loading, loadingText = DEFAULT_LOADING_TEXT, multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, options: optionsProp, 
+    /**
+     * Renders a TextField
+     */
+    renderInput = exports.defaultInput, value: valueProp, upBranchOnEsc, ...rest } = props;
     const isBranchPathControlled = branchPathProp !== undefined;
     const isInputControlled = inputValueProp !== undefined;
     const isValueControlled = valueProp !== undefined;
@@ -211,7 +220,7 @@ const TreeSelect = (props) => {
         return (options, filterOptionsState) => {
             const [staticOpts, filteredOpts] = options.reduce((opts, opt) => {
                 const [staticOpts, filteredOpts] = opts;
-                // LOADING_OPTION and NO_OPTIONS_OPTION are NEVER filtered
+                // LOADING_OPTION is NEVER filtered
                 if (opt === LOADING_OPTION) {
                     staticOpts.push(opt);
                 }
@@ -223,6 +232,9 @@ const TreeSelect = (props) => {
                     else {
                         filteredOpts.push(opt);
                     }
+                }
+                else {
+                    filteredOpts.push(opt);
                 }
                 return opts;
             }, [[], []]);
@@ -319,19 +331,6 @@ const TreeSelect = (props) => {
             };
         }
     }, [setState, onOpenProp]);
-    const renderInput = react_1.useCallback((params) => {
-        const props = typeof textFieldProps === "function"
-            ? textFieldProps(params)
-            : {
-                ...textFieldProps,
-                ...params,
-                InputProps: {
-                    ...((textFieldProps === null || textFieldProps === void 0 ? void 0 : textFieldProps.InputProps) || {}),
-                    ...((params === null || params === void 0 ? void 0 : params.InputProps) || {}),
-                },
-            };
-        return react_1.default.createElement(core_1.TextField, Object.assign({}, props));
-    }, [textFieldProps]);
     const renderOption = react_1.useCallback((option) => {
         if (option === LOADING_OPTION) {
             return (react_1.default.createElement("div", { className: "MuiAutocomplete-loading" }, getOptionLabel(LOADING_OPTION)));
