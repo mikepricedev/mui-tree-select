@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, {
+  forwardRef,
+  Fragment,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import Autocomplete, {
   AutocompleteProps,
   AutocompleteRenderInputParams,
@@ -8,9 +14,19 @@ import {
   AutocompleteCloseReason,
   createFilterOptions,
   FilterOptionsState,
+  Value as AutocompleteValue,
 } from "@material-ui/lab/useAutocomplete";
 import Skeleton from "@material-ui/lab/Skeleton";
-import { Box, TextField, TextFieldProps } from "@material-ui/core";
+import {
+  Box,
+  Chip,
+  ChipProps,
+  InputProps,
+  SvgIcon,
+  SvgIconProps,
+  TextField,
+  TextFieldProps,
+} from "@material-ui/core";
 import { makeStyles, createStyles } from "@material-ui/styles";
 import { createMuiTheme } from "@material-ui/core/styles";
 import ChevronRightIcon from "@material-ui/icons/ChevronRight";
@@ -55,42 +71,135 @@ const primaryTypographyProps: NonNullable<
 /**
  * Used to distinguish free solo entries from string values.
  */
-export class FreeSoloValue extends String {
-  constructor(value: string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export class FreeSoloValue<TBranchOption = any> extends String {
+  constructor(
+    readonly value: string,
+    readonly branchPath: BranchOption<TBranchOption>[] = []
+  ) {
     super(value);
   }
 }
 
 /**
- * Options are wrapped to distinguish free solo entries from string
- * options, this is used internally only.
+ * Wrapper for all option values that includes the branch path to the option.
  */
-class Option<T> {
-  constructor(readonly option: T) {}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export class Value<T, TBranchOption = any> {
+  constructor(
+    readonly value: T,
+    readonly branchPath: BranchOption<TBranchOption>[] = []
+  ) {}
   valueOf(): T {
-    return this.option;
+    return this.value;
   }
 
   toString(): string {
-    return convertToString(this.option);
+    return convertToString(this.value);
   }
 }
 
 /**
  * Indicates an option is a branch node.
  */
-export class BranchOption<TBranchOption> extends Option<TBranchOption> {}
+export class BranchOption<TBranchOption> {
+  constructor(readonly value: TBranchOption) {}
+  valueOf(): TBranchOption {
+    return this.value;
+  }
+
+  toString(): string {
+    return convertToString(this.value);
+  }
+}
 
 const DEFAULT_LOADING_TEXT = "Loading…" as const;
 
 const LOADING_OPTION = Symbol();
+
+const BranchPathIcon = forwardRef<SVGSVGElement, SvgIconProps>(
+  (props: SvgIconProps, ref) => (
+    <SvgIcon
+      style={useMemo(
+        () => ({
+          ...(props.style || {}),
+          cursor: "default",
+        }),
+        [props.style]
+      )}
+      ref={ref}
+      {...props}
+    >
+      <path d="M20 9C18.69 9 17.58 9.83 17.17 11H14.82C14.4 9.84 13.3 9 12 9S9.6 9.84 9.18 11H6.83C6.42 9.83 5.31 9 4 9C2.34 9 1 10.34 1 12S2.34 15 4 15C5.31 15 6.42 14.17 6.83 13H9.18C9.6 14.16 10.7 15 12 15S14.4 14.16 14.82 13H17.17C17.58 14.17 18.69 15 20 15C21.66 15 23 13.66 23 12S21.66 9 20 9" />
+    </SvgIcon>
+  )
+);
+
+const branchPathToStr = function <TBranchOption>(
+  branchPath: BranchOption<TBranchOption>[],
+  getOptionLabel: (option: BranchOption<TBranchOption>) => string
+): string {
+  return branchPath.reduce((pathStr, branch) => {
+    return `${pathStr}${pathStr ? " > " : ""}${getOptionLabel(branch)}`;
+  }, "");
+};
+
+export const mergeInputStartAdornment = (
+  action: "append" | "prepend",
+  adornment: React.ReactNode,
+  inputProps: InputProps
+): InputProps => ({
+  ...inputProps,
+  startAdornment: (() => {
+    if (inputProps.startAdornment) {
+      return action === "append" ? (
+        <Fragment>
+          {inputProps.startAdornment}
+          {adornment}
+        </Fragment>
+      ) : (
+        <Fragment>
+          {adornment}
+          {inputProps.startAdornment}
+        </Fragment>
+      );
+    } else {
+      return adornment;
+    }
+  })(),
+});
+
+export const mergeInputEndAdornment = (
+  action: "append" | "prepend",
+  adornment: React.ReactNode,
+  inputProps: InputProps
+): InputProps => ({
+  ...inputProps,
+  endAdornment: (() => {
+    if (inputProps.endAdornment) {
+      return action === "append" ? (
+        <Fragment>
+          {inputProps.endAdornment}
+          {adornment}
+        </Fragment>
+      ) : (
+        <Fragment>
+          {adornment}
+          {inputProps.endAdornment}
+        </Fragment>
+      );
+    } else {
+      return adornment;
+    }
+  })(),
+});
 
 /**
  * Renders a TextField
  */
 export const defaultInput = (
   params: TextFieldProps | AutocompleteRenderInputParams
-): JSX.Element => <TextField {...params}></TextField>;
+): JSX.Element => <TextField {...params} />;
 
 export type BranchSelectReason =
   | Extract<AutocompleteChangeReason, "select-option">
@@ -99,8 +208,9 @@ export type BranchSelectReason =
 export type BranchSelectDirection = "up" | "down";
 
 export type FreeSoloValueMapping<
-  FreeSolo extends boolean | undefined
-> = FreeSolo extends true ? FreeSoloValue : never;
+  FreeSolo extends boolean | undefined,
+  TBranchOption
+> = FreeSolo extends true ? FreeSoloValue<TBranchOption> : never;
 
 export type TreeSelectProps<
   T,
@@ -109,21 +219,55 @@ export type TreeSelectProps<
   DisableClearable extends boolean | undefined,
   FreeSolo extends boolean | undefined
 > = Pick<
-  // T ONLY
-  AutocompleteProps<T, Multiple, DisableClearable, false>,
-  "defaultValue" | "getOptionSelected"
+  // Value ONLY
+  AutocompleteProps<Value<T, TBranchOption>, Multiple, DisableClearable, false>,
+  "getOptionSelected"
 > &
-  // T and FreeSoloValue
+  //T and Value
   Pick<
     AutocompleteProps<
-      T | FreeSoloValueMapping<FreeSolo>,
+      | T
+      | Value<T, TBranchOption>
+      | FreeSoloValueMapping<FreeSolo, TBranchOption>,
       Multiple,
       DisableClearable,
       false
     >,
-    "onChange" | "renderTags" | "value"
+    "defaultValue"
   > &
-  // T and BranchOptions
+  // Value and FreeSoloValue
+  Pick<
+    AutocompleteProps<
+      Value<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption>,
+      Multiple,
+      DisableClearable,
+      false
+    >,
+    "onChange" | "renderTags"
+  > &
+  // T, Value and FreeSoloValue
+  Pick<
+    AutocompleteProps<
+      | T
+      | Value<T, TBranchOption>
+      | FreeSoloValueMapping<FreeSolo, TBranchOption>,
+      Multiple,
+      DisableClearable,
+      false
+    >,
+    "value"
+  > &
+  // Value and BranchOptions
+  Pick<
+    AutocompleteProps<
+      Value<T, TBranchOption> | BranchOption<TBranchOption>,
+      Multiple,
+      DisableClearable,
+      false
+    >,
+    "getOptionDisabled" | "groupBy" | "onHighlightChange"
+  > &
+  // T, BranchOptions
   Pick<
     AutocompleteProps<
       T | BranchOption<TBranchOption>,
@@ -131,12 +275,14 @@ export type TreeSelectProps<
       DisableClearable,
       false
     >,
-    "getOptionDisabled" | "groupBy" | "onHighlightChange" | "options"
+    "options"
   > &
-  // T, FreeSoloValue, and BranchOptions
+  // Value, FreeSoloValue, and BranchOptions
   Pick<
     AutocompleteProps<
-      T | FreeSoloValueMapping<FreeSolo> | BranchOption<TBranchOption>,
+      | Value<T, TBranchOption>
+      | FreeSoloValueMapping<FreeSolo, TBranchOption>
+      | BranchOption<TBranchOption>,
       Multiple,
       DisableClearable,
       false
@@ -175,8 +321,10 @@ export type TreeSelectProps<
      * @returns `true` to keep option and `false` to filter.
      */
     filterOptions?: (
-      option: T | BranchOption<TBranchOption>,
-      state: FilterOptionsState<T | BranchOption<TBranchOption>>
+      option: Value<T, TBranchOption> | BranchOption<TBranchOption>,
+      state: FilterOptionsState<
+        Value<T, TBranchOption> | BranchOption<TBranchOption>
+      >
     ) => boolean;
     freeSolo?: FreeSolo;
     loadingText?: string;
@@ -209,10 +357,15 @@ const TreeSelect = <
 ): JSX.Element => {
   type TOption =
     | BranchOption<TBranchOption>
-    | Option<T>
+    | Value<T, TBranchOption>
     | typeof LOADING_OPTION;
 
-  type TValue = typeof props.value;
+  type TValue = AutocompleteValue<
+    Value<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption>,
+    Multiple,
+    DisableClearable,
+    false
+  >;
 
   interface TreeSelectState {
     branchPath: BranchOption<TBranchOption>[];
@@ -253,11 +406,23 @@ const TreeSelect = <
     /**
      * Renders a TextField
      */
-    renderInput = defaultInput,
-    value: valueProp,
+    renderInput: renderInputProp = defaultInput,
+    renderTags: renderTagsProp,
+    value: valuePropRaw,
     upBranchOnEsc,
     ...rest
   } = props;
+
+  const valueProp = useMemo(
+    () =>
+      !valuePropRaw ||
+      valuePropRaw instanceof Value ||
+      valuePropRaw instanceof FreeSoloValue
+        ? valuePropRaw
+        : new Value(valuePropRaw),
+
+    [valuePropRaw]
+  );
 
   const isBranchPathControlled = branchPathProp !== undefined;
   const isInputControlled = inputValueProp !== undefined;
@@ -274,11 +439,15 @@ const TreeSelect = <
       if (!multiple && !isInputControlled) {
         if ((valueProp ?? NULLISH) !== NULLISH) {
           return getOptionLabelProp
-            ? getOptionLabelProp(valueProp as T)
+            ? getOptionLabelProp(valueProp as Value<T, TBranchOption>)
             : convertToString(valueProp);
         } else if ((defaultValue ?? NULLISH) !== NULLISH) {
           return getOptionLabelProp
-            ? getOptionLabelProp(defaultValue as T)
+            ? getOptionLabelProp(
+                defaultValue instanceof Value
+                  ? defaultValue
+                  : new Value<T, TBranchOption>(defaultValue as T)
+              )
             : convertToString(defaultValue);
         }
       }
@@ -289,13 +458,22 @@ const TreeSelect = <
       if (isValueControlled || defaultValue === undefined) {
         return multiple ? [] : null;
       } else if (multiple) {
-        return (defaultValue as T[]).map((v) => new Option(v as T));
+        return (defaultValue as (
+          | T
+          | Value<T, TBranchOption>
+        )[]).map((defaultValue) =>
+          defaultValue instanceof Value
+            ? defaultValue
+            : new Value<T, TBranchOption>(defaultValue as T)
+        );
       } else if (defaultValue === null) {
         return null;
       } else {
-        return new Option(defaultValue as T);
+        return defaultValue instanceof Value
+          ? defaultValue
+          : new Value<T, TBranchOption>(defaultValue as T);
       }
-    })() as typeof props.value,
+    })() as TValue,
   });
 
   const branchPath = (isBranchPathControlled
@@ -320,11 +498,7 @@ const TreeSelect = <
       } else if (loading) {
         return true;
       } else if (getOptionDisabledProp) {
-        return getOptionDisabledProp(
-          option instanceof Option && !(option instanceof BranchOption)
-            ? option.option
-            : option
-        );
+        return getOptionDisabledProp(option);
       } else {
         return false;
       }
@@ -333,37 +507,25 @@ const TreeSelect = <
   );
 
   const getOptionLabel = useCallback<
-    (option: TOption | FreeSoloValueMapping<FreeSolo> | T) => string
+    (option: TOption | FreeSoloValueMapping<FreeSolo, TBranchOption>) => string
   >(
-    (option: TOption | FreeSoloValueMapping<FreeSolo> | T) => {
+    (option: TOption | FreeSoloValueMapping<FreeSolo, TBranchOption>) => {
       if (option === LOADING_OPTION) {
         return loadingText;
       } else if (getOptionLabelProp) {
-        return getOptionLabelProp(
-          (() => {
-            if (option instanceof FreeSoloValue) {
-              return option as FreeSoloValueMapping<FreeSolo>;
-            } else if (option instanceof BranchOption) {
-              return option;
-            } else if (option instanceof Option) {
-              return option.option;
-            } else {
-              return option;
-            }
-          })()
-        );
-      } else if (option instanceof Option) {
-        return convertToString(option.option);
+        return getOptionLabelProp(option);
       } else {
-        return convertToString(option);
+        return convertToString(option.toString());
       }
     },
     [getOptionLabelProp, loadingText]
   );
 
-  const getOptionSelected = useCallback<(option: TOption, value: T) => boolean>(
-    (option: TOption, value: T | FreeSoloValue) => {
-      // An Option is NEVER a FreeSoloValue (sanity); BranchOption and
+  const getOptionSelected = useCallback<
+    (option: TOption, value: Value<T, TBranchOption> | FreeSoloValue) => boolean
+  >(
+    (option: TOption, value: Value<T, TBranchOption> | FreeSoloValue) => {
+      // An Value is NEVER a FreeSoloValue (sanity); BranchOption and
       // LOADING_OPTION are NEVER selectable.
       if (
         value instanceof FreeSoloValue ||
@@ -372,9 +534,9 @@ const TreeSelect = <
       ) {
         return false;
       } else if (getOptionSelectedProp) {
-        return getOptionSelectedProp(option.option, value);
+        return getOptionSelectedProp(option, value);
       } else {
-        return option.option === value;
+        return option.value === value.value;
       }
     },
     [getOptionSelectedProp]
@@ -384,31 +546,31 @@ const TreeSelect = <
     (
       options: TOption[],
       filterOptionsState: FilterOptionsState<
-        Option<T> | BranchOption<TBranchOption>
+        Value<T> | BranchOption<TBranchOption>
       >
     ) => TOption[]
   >(() => {
     const filterOptions = filterOptionsProp
       ? (
-          options: (Option<T> | BranchOption<TBranchOption>)[],
-          state: FilterOptionsState<Option<T> | BranchOption<TBranchOption>>
+          options: (Value<T, TBranchOption> | BranchOption<TBranchOption>)[],
+          state: FilterOptionsState<
+            Value<T, TBranchOption> | BranchOption<TBranchOption>
+          >
         ) => {
           const newState = {
             ...state,
-            getOptionLabel: (option: T | BranchOption<TBranchOption>) =>
-              state.getOptionLabel(
-                option instanceof BranchOption ? option : new Option(option)
-              ),
+            getOptionLabel: (
+              option: Value<T, TBranchOption> | BranchOption<TBranchOption>
+            ) => state.getOptionLabel(option),
           };
 
           return options.filter((option) =>
-            filterOptionsProp(
-              option instanceof BranchOption ? option : option.option,
-              newState
-            )
+            filterOptionsProp(option, newState)
           );
         }
-      : createFilterOptions<Option<T> | BranchOption<TBranchOption>>({
+      : createFilterOptions<
+          Value<T, TBranchOption> | BranchOption<TBranchOption>
+        >({
           stringify: getOptionLabel,
         });
 
@@ -416,7 +578,7 @@ const TreeSelect = <
     return (
       options: TOption[],
       filterOptionsState: FilterOptionsState<
-        Option<T> | BranchOption<TBranchOption>
+        Value<T, TBranchOption> | BranchOption<TBranchOption>
       >
     ) => {
       const [staticOpts, filteredOpts] = options.reduce(
@@ -441,7 +603,7 @@ const TreeSelect = <
         },
         [[], []] as [
           (BranchOption<TBranchOption> | typeof LOADING_OPTION)[],
-          (Option<T> | BranchOption<TBranchOption>)[]
+          (Value<T, TBranchOption> | BranchOption<TBranchOption>)[]
         ]
       );
 
@@ -587,6 +749,41 @@ const TreeSelect = <
     }
   }, [setState, onOpenProp]);
 
+  const renderInput = useCallback<NonNullable<typeof props.renderInput>>(
+    (params) => {
+      if (
+        multiple ||
+        !value ||
+        !(value as
+          | Value<T, TBranchOption>
+          | FreeSoloValueMapping<FreeSolo, TBranchOption>).branchPath.length ||
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getOptionLabel(value as any) !== (params?.inputProps as any)?.value
+      ) {
+        return renderInputProp(params);
+      } else {
+        return renderInputProp({
+          ...params,
+          InputProps: mergeInputStartAdornment(
+            "prepend",
+            <Tooltip
+              title={branchPathToStr<TBranchOption>(
+                (value as
+                  | Value<T, TBranchOption>
+                  | FreeSoloValueMapping<FreeSolo, TBranchOption>).branchPath,
+                getOptionLabel
+              )}
+            >
+              <BranchPathIcon fontSize="small" />
+            </Tooltip>,
+            params.InputProps || {}
+          ),
+        });
+      }
+    },
+    [renderInputProp, multiple, value, getOptionLabel]
+  );
+
   const renderOption = useCallback<
     NonNullable<
       AutocompleteProps<
@@ -617,11 +814,10 @@ const TreeSelect = <
             </ListItemIcon>
             {branchPath.length > 1 ? (
               <Tooltip
-                title={branchPath.reduce((pathStr, branch) => {
-                  return `${pathStr}${pathStr ? " > " : ""}${getOptionLabel(
-                    branch
-                  )}`;
-                }, "")}
+                title={branchPathToStr<TBranchOption>(
+                  branchPath,
+                  getOptionLabel
+                )}
               >
                 <ListItemText
                   primaryTypographyProps={primaryTypographyProps}
@@ -671,6 +867,51 @@ const TreeSelect = <
       enterBranchText,
       exitBranchText,
     ]
+  );
+
+  const renderTags = useCallback<
+    NonNullable<
+      AutocompleteProps<
+        Value<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption>,
+        Multiple,
+        DisableClearable,
+        FreeSolo
+      >["renderTags"]
+    >
+  >(
+    (value, getTagProps) => {
+      if (renderTagsProp) {
+        return renderTagsProp(value, getTagProps);
+      } else {
+        return value.map((option, index) => {
+          if (option.branchPath.length) {
+            const { key, ...chipProps } = getTagProps({ index }) as {
+              key: React.Key;
+            } & ChipProps;
+            return (
+              <Tooltip
+                key={key}
+                title={branchPathToStr<TBranchOption>(
+                  option.branchPath,
+                  getOptionLabel
+                )}
+              >
+                <Chip label={getOptionLabel(option)} {...chipProps} />
+              </Tooltip>
+            );
+          } else {
+            return (
+              <Chip
+                key={index}
+                label={getOptionLabel(option)}
+                {...getTagProps({ index })}
+              />
+            );
+          }
+        });
+      }
+    },
+    [renderTagsProp, getOptionLabel]
   );
 
   const onInputChange = useCallback<
@@ -771,9 +1012,9 @@ const TreeSelect = <
               }
             } else {
               const parsedValue =
-                value instanceof Option
-                  ? value.option
-                  : new FreeSoloValue(value);
+                value instanceof Value
+                  ? new Value(value.value, branchPath)
+                  : new FreeSoloValue(value, branchPath);
 
               const newValue = (multiple
                 ? [...(args[1] as unknown[]).slice(0, -1), parsedValue]
@@ -786,9 +1027,9 @@ const TreeSelect = <
                 resetInput(
                   event,
                   getOptionLabel(
-                    parsedValue instanceof FreeSoloValue
-                      ? (parsedValue as FreeSoloValueMapping<FreeSolo>)
-                      : (value as Option<T>)
+                    parsedValue as
+                      | TOption
+                      | FreeSoloValueMapping<FreeSolo, TBranchOption>
                   )
                 );
               }
@@ -871,9 +1112,7 @@ const TreeSelect = <
             resetInput(
               event,
               getOptionLabel(
-                value instanceof FreeSoloValue
-                  ? (value as FreeSoloValueMapping<FreeSolo>)
-                  : new Option(value as T)
+                value as FreeSoloValueMapping<FreeSolo, TBranchOption> | TOption
               )
             );
           }
@@ -914,7 +1153,9 @@ const TreeSelect = <
     } else {
       return optionsProp.reduce((options, option) => {
         options.push(
-          option instanceof BranchOption ? option : new Option(option)
+          option instanceof BranchOption
+            ? option
+            : new Value(option, branchPath)
         );
         return options;
       }, options);
@@ -974,6 +1215,8 @@ const TreeSelect = <
       options={options as any[]}
       renderInput={renderInput}
       renderOption={renderOption}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderTags={renderTags as any}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       value={value as any}
     />
