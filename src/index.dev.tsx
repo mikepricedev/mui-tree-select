@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from "react";
 import ReactDOM from "react-dom";
 import TreeSelect, {
-  Value,
+  Option,
   BranchOption,
   FreeSoloValue,
   defaultInput,
@@ -38,7 +38,7 @@ const generateOptions = (
 
 const getOptionLabel = (
   option:
-    | Value<string, TBranchOption>
+    | Option<string, TBranchOption>
     | BranchOption<TBranchOption>
     | FreeSoloValue
 ): string => {
