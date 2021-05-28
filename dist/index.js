@@ -22,7 +22,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.defaultInput = exports.mergeInputEndAdornment = exports.mergeInputStartAdornment = exports.BranchOption = exports.Value = exports.FreeSoloValue = void 0;
+exports.defaultInput = exports.mergeInputEndAdornment = exports.mergeInputStartAdornment = exports.BranchOption = exports.Option = exports.FreeSoloValue = void 0;
 const react_1 = __importStar(require("react"));
 const Autocomplete_1 = __importDefault(require("@material-ui/lab/Autocomplete"));
 const useAutocomplete_1 = require("@material-ui/lab/useAutocomplete");
@@ -66,27 +66,7 @@ class FreeSoloValue extends String {
     }
 }
 exports.FreeSoloValue = FreeSoloValue;
-/**
- * Wrapper for all option values that includes the branch path to the option.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-class Value {
-    constructor(value, branchPath = []) {
-        this.value = value;
-        this.branchPath = branchPath;
-    }
-    valueOf() {
-        return this.value;
-    }
-    toString() {
-        return convertToString(this.value);
-    }
-}
-exports.Value = Value;
-/**
- * Indicates an option is a branch node.
- */
-class BranchOption {
+class BaseOption {
     constructor(value) {
         this.value = value;
     }
@@ -96,6 +76,22 @@ class BranchOption {
     toString() {
         return convertToString(this.value);
     }
+}
+/**
+ * Wrapper for all option values that includes the branch path to the option.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+class Option extends BaseOption {
+    constructor(value, branchPath = []) {
+        super(value);
+        this.branchPath = branchPath;
+    }
+}
+exports.Option = Option;
+/**
+ * Indicates an option is a branch node.
+ */
+class BranchOption extends BaseOption {
 }
 exports.BranchOption = BranchOption;
 const DEFAULT_LOADING_TEXT = "Loading…";
@@ -155,10 +151,10 @@ const TreeSelect = (props) => {
      */
     renderInput: renderInputProp = exports.defaultInput, renderTags: renderTagsProp, value: valuePropRaw, upBranchOnEsc, ...rest } = props;
     const valueProp = react_1.useMemo(() => !valuePropRaw ||
-        valuePropRaw instanceof Value ||
+        valuePropRaw instanceof Option ||
         valuePropRaw instanceof FreeSoloValue
         ? valuePropRaw
-        : new Value(valuePropRaw), [valuePropRaw]);
+        : new Option(valuePropRaw), [valuePropRaw]);
     const isBranchPathControlled = branchPathProp !== undefined;
     const isInputControlled = inputValueProp !== undefined;
     const isValueControlled = valueProp !== undefined;
@@ -174,9 +170,9 @@ const TreeSelect = (props) => {
                 }
                 else if ((defaultValue !== null && defaultValue !== void 0 ? defaultValue : NULLISH) !== NULLISH) {
                     return getOptionLabelProp
-                        ? getOptionLabelProp(defaultValue instanceof Value
+                        ? getOptionLabelProp(defaultValue instanceof Option
                             ? defaultValue
-                            : new Value(defaultValue))
+                            : new Option(defaultValue))
                         : convertToString(defaultValue);
                 }
             }
@@ -188,17 +184,17 @@ const TreeSelect = (props) => {
                 return multiple ? [] : null;
             }
             else if (multiple) {
-                return defaultValue.map((defaultValue) => defaultValue instanceof Value
+                return defaultValue.map((defaultValue) => defaultValue instanceof Option
                     ? defaultValue
-                    : new Value(defaultValue));
+                    : new Option(defaultValue));
             }
             else if (defaultValue === null) {
                 return null;
             }
             else {
-                return defaultValue instanceof Value
+                return defaultValue instanceof Option
                     ? defaultValue
-                    : new Value(defaultValue);
+                    : new Option(defaultValue);
             }
         })(),
     });
@@ -503,8 +499,8 @@ const TreeSelect = (props) => {
                         }
                     }
                     else {
-                        const parsedValue = value instanceof Value
-                            ? new Value(value.value, branchPath)
+                        const parsedValue = value instanceof Option
+                            ? new Option(value.value, branchPath)
                             : new FreeSoloValue(value, branchPath);
                         const newValue = (multiple
                             ? [...args[1].slice(0, -1), parsedValue]
@@ -613,7 +609,7 @@ const TreeSelect = (props) => {
             return optionsProp.reduce((options, option) => {
                 options.push(option instanceof BranchOption
                     ? option
-                    : new Value(option, branchPath));
+                    : new Option(option, branchPath));
                 return options;
             }, options);
         }

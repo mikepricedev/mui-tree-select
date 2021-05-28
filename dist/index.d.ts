@@ -10,24 +10,23 @@ export declare class FreeSoloValue<TBranchOption = any> extends String {
     readonly branchPath: BranchOption<TBranchOption>[];
     constructor(value: string, branchPath?: BranchOption<TBranchOption>[]);
 }
-/**
- * Wrapper for all option values that includes the branch path to the option.
- */
-export declare class Value<T, TBranchOption = any> {
+declare abstract class BaseOption<T> {
     readonly value: T;
-    readonly branchPath: BranchOption<TBranchOption>[];
-    constructor(value: T, branchPath?: BranchOption<TBranchOption>[]);
+    constructor(value: T);
     valueOf(): T;
     toString(): string;
 }
 /**
+ * Wrapper for all option values that includes the branch path to the option.
+ */
+export declare class Option<T, TBranchOption = any> extends BaseOption<T> {
+    readonly branchPath: BranchOption<TBranchOption>[];
+    constructor(value: T, branchPath?: BranchOption<TBranchOption>[]);
+}
+/**
  * Indicates an option is a branch node.
  */
-export declare class BranchOption<TBranchOption> {
-    readonly value: TBranchOption;
-    constructor(value: TBranchOption);
-    valueOf(): TBranchOption;
-    toString(): string;
+export declare class BranchOption<TBranchOption> extends BaseOption<TBranchOption> {
 }
 export declare const mergeInputStartAdornment: (action: "append" | "prepend", adornment: React.ReactNode, inputProps: InputProps) => InputProps;
 export declare const mergeInputEndAdornment: (action: "append" | "prepend", adornment: React.ReactNode, inputProps: InputProps) => InputProps;
@@ -38,14 +37,14 @@ export declare const defaultInput: (params: TextFieldProps | AutocompleteRenderI
 export declare type BranchSelectReason = Extract<AutocompleteChangeReason, "select-option"> | Extract<AutocompleteCloseReason, "escape">;
 export declare type BranchSelectDirection = "up" | "down";
 export declare type FreeSoloValueMapping<FreeSolo extends boolean | undefined, TBranchOption> = FreeSolo extends true ? FreeSoloValue<TBranchOption> : never;
-export declare type TreeSelectProps<T, TBranchOption, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined> = Pick<AutocompleteProps<Value<T, TBranchOption>, Multiple, DisableClearable, false>, "getOptionSelected"> & Pick<AutocompleteProps<T | Value<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption>, Multiple, DisableClearable, false>, "defaultValue"> & Pick<AutocompleteProps<Value<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption>, Multiple, DisableClearable, false>, "onChange" | "renderTags"> & Pick<AutocompleteProps<T | Value<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption>, Multiple, DisableClearable, false>, "value"> & Pick<AutocompleteProps<Value<T, TBranchOption> | BranchOption<TBranchOption>, Multiple, DisableClearable, false>, "getOptionDisabled" | "groupBy" | "onHighlightChange"> & Pick<AutocompleteProps<T | BranchOption<TBranchOption>, Multiple, DisableClearable, false>, "options"> & Pick<AutocompleteProps<Value<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption> | BranchOption<TBranchOption>, Multiple, DisableClearable, false>, "getOptionLabel"> & Omit<AutocompleteProps<unknown, Multiple, DisableClearable, false>, "defaultValue" | "filterOptions" | "getOptionDisabled" | "getOptionLabel" | "getOptionSelected" | "groupBy" | "onChange" | "onHighlightChange" | "renderTags" | "value" | "filterOptions" | "freeSolo" | "loadingText" | "noOptionsText" | "options" | "renderInput" | "renderOption" | "placeholder"> & {
+export declare type TreeSelectProps<T, TBranchOption, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined> = Pick<AutocompleteProps<Option<T, TBranchOption>, Multiple, DisableClearable, false>, "getOptionSelected"> & Pick<AutocompleteProps<T | Option<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption>, Multiple, DisableClearable, false>, "defaultValue"> & Pick<AutocompleteProps<Option<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption>, Multiple, DisableClearable, false>, "onChange" | "renderTags"> & Pick<AutocompleteProps<T | Option<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption>, Multiple, DisableClearable, false>, "value"> & Pick<AutocompleteProps<Option<T, TBranchOption> | BranchOption<TBranchOption>, Multiple, DisableClearable, false>, "getOptionDisabled" | "groupBy" | "onHighlightChange"> & Pick<AutocompleteProps<T | BranchOption<TBranchOption>, Multiple, DisableClearable, false>, "options"> & Pick<AutocompleteProps<Option<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption> | BranchOption<TBranchOption>, Multiple, DisableClearable, false>, "getOptionLabel"> & Omit<AutocompleteProps<unknown, Multiple, DisableClearable, false>, "defaultValue" | "filterOptions" | "getOptionDisabled" | "getOptionLabel" | "getOptionSelected" | "groupBy" | "onChange" | "onHighlightChange" | "renderTags" | "value" | "filterOptions" | "freeSolo" | "loadingText" | "noOptionsText" | "options" | "renderInput" | "renderOption" | "placeholder"> & {
     branchPath?: BranchOption<TBranchOption>[];
     enterBranchText?: string;
     exitBranchText?: string;
     /**
      * @returns `true` to keep option and `false` to filter.
      */
-    filterOptions?: (option: Value<T, TBranchOption> | BranchOption<TBranchOption>, state: FilterOptionsState<Value<T, TBranchOption> | BranchOption<TBranchOption>>) => boolean;
+    filterOptions?: (option: Option<T, TBranchOption> | BranchOption<TBranchOption>, state: FilterOptionsState<Option<T, TBranchOption> | BranchOption<TBranchOption>>) => boolean;
     freeSolo?: FreeSolo;
     loadingText?: string;
     noOptionsText?: string;
