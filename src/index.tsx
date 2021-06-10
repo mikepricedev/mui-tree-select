@@ -74,7 +74,7 @@ const primaryTypographyProps: NonNullable<
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export class FreeSoloValue<TBranchOption = any> extends String {
   constructor(
-    readonly value: string,
+    value: string,
     readonly branchPath: BranchOption<TBranchOption>[] = []
   ) {
     super(value);
@@ -82,13 +82,16 @@ export class FreeSoloValue<TBranchOption = any> extends String {
 }
 
 abstract class BaseOption<T> {
-  constructor(readonly value: T) {}
+  #_value_: T;
+  constructor(value: T) {
+    this.#_value_ = value;
+  }
   valueOf(): T {
-    return this.value;
+    return this.#_value_;
   }
 
   toString(): string {
-    return convertToString(this.value);
+    return convertToString(this.#_value_);
   }
 }
 
@@ -215,17 +218,8 @@ export type TreeSelectProps<
   Multiple extends boolean | undefined,
   DisableClearable extends boolean | undefined,
   FreeSolo extends boolean | undefined
-> = Pick<
-  // Value ONLY
-  AutocompleteProps<
-    Option<T, TBranchOption>,
-    Multiple,
-    DisableClearable,
-    false
-  >,
-  "getOptionSelected"
-> &
-  //T and Value
+> =
+  //T and Option
   Pick<
     AutocompleteProps<
       | T
@@ -237,50 +231,51 @@ export type TreeSelectProps<
     >,
     "defaultValue"
   > &
-  // Value and FreeSoloValue
-  Pick<
-    AutocompleteProps<
-      Option<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption>,
-      Multiple,
-      DisableClearable,
-      false
-    >,
-    "onChange" | "renderTags"
-  > &
-  // T, Value and FreeSoloValue
-  Pick<
-    AutocompleteProps<
-      | T
-      | Option<T, TBranchOption>
-      | FreeSoloValueMapping<FreeSolo, TBranchOption>,
-      Multiple,
-      DisableClearable,
-      false
-    >,
-    "value"
-  > &
-  // Value and BranchOptions
-  Pick<
-    AutocompleteProps<
-      Option<T, TBranchOption> | BranchOption<TBranchOption>,
-      Multiple,
-      DisableClearable,
-      false
-    >,
-    "getOptionDisabled" | "groupBy" | "onHighlightChange"
-  > &
-  // T, BranchOptions
-  Pick<
-    AutocompleteProps<
-      T | BranchOption<TBranchOption>,
-      Multiple,
-      DisableClearable,
-      false
-    >,
-    "options"
-  > &
-  // Value, FreeSoloValue, and BranchOptions
-  Pick<
+    // Option and FreeSoloValue
+    Pick<
+      AutocompleteProps<
+        | Option<T, TBranchOption>
+        | FreeSoloValueMapping<FreeSolo, TBranchOption>,
+        Multiple,
+        DisableClearable,
+        false
+      >,
+      "onChange" | "renderTags"
+    > &
+    // T, Option and FreeSoloValue
+    Pick<
+      AutocompleteProps<
+        | T
+        | Option<T, TBranchOption>
+        | FreeSoloValueMapping<FreeSolo, TBranchOption>,
+        Multiple,
+        DisableClearable,
+        false
+      >,
+      "value"
+    > &
+    // Option and BranchOptions
+    Pick<
+      AutocompleteProps<
+        Option<T, TBranchOption> | BranchOption<TBranchOption>,
+        Multiple,
+        DisableClearable,
+        false
+      >,
+      "onHighlightChange"
+    > &
+    // T, BranchOptions
+    Pick<
+      AutocompleteProps<
+        T | BranchOption<TBranchOption>,
+        Multiple,
+        DisableClearable,
+        false
+      >,
+      "options"
+    > &
+    // Option, FreeSoloValue, and BranchOptions
+    /* Pick<
     AutocompleteProps<
       | Option<T, TBranchOption>
       | FreeSoloValueMapping<FreeSolo, TBranchOption>
@@ -290,63 +285,86 @@ export type TreeSelectProps<
       false
     >,
     "getOptionLabel"
-  > &
-  // Rest AutocompleteProps and Omits
-  Omit<
-    AutocompleteProps<unknown, Multiple, DisableClearable, false>,
-    // Omit above Pick's
-    | "defaultValue"
-    | "filterOptions"
-    | "getOptionDisabled"
-    | "getOptionLabel"
-    | "getOptionSelected"
-    | "groupBy"
-    | "onChange"
-    | "onHighlightChange"
-    | "renderTags"
-    | "value"
+  >  & */
+    // Rest AutocompleteProps and Omits
+    Omit<
+      AutocompleteProps<unknown, Multiple, DisableClearable, false>,
+      // Omit above Pick's
+      | "defaultValue"
+      | "filterOptions"
+      | "options"
+      | "onChange"
+      | "onHighlightChange"
+      | "renderTags"
+      | "value"
 
-    // Omits
-    | "filterOptions"
-    | "freeSolo"
-    | "loadingText"
-    | "noOptionsText"
-    | "options"
-    | "renderInput"
-    | "renderOption"
-    | "placeholder"
-  > & {
-    branchPath?: BranchOption<TBranchOption>[];
-    enterBranchText?: string;
-    exitBranchText?: string;
-    /**
-     * @returns `true` to keep option and `false` to filter.
-     */
-    filterOptions?: (
-      option: Option<T, TBranchOption> | BranchOption<TBranchOption>,
-      state: FilterOptionsState<
-        Option<T, TBranchOption> | BranchOption<TBranchOption>
-      >
-    ) => boolean;
-    freeSolo?: FreeSolo;
-    loadingText?: string;
-    noOptionsText?: string;
-    onBranchChange: (
-      event: React.ChangeEvent<Record<string, unknown>>,
-      branchOption: BranchOption<TBranchOption> | undefined,
-      branchPath: BranchOption<TBranchOption>[],
-      direction: BranchSelectDirection,
-      reason: BranchSelectReason
-    ) => void | Promise<void>;
-    renderInput?: (
-      params: AutocompleteRenderInputParams | TextFieldProps
-    ) => JSX.Element;
-    /**
-     * Goes up one branch on escape key press; unless at root, then default
-     * MUI Autocomplete behavior.
-     * */
-    upBranchOnEsc?: boolean;
-  };
+      // Omits
+      | "filterOptions"
+      | "freeSolo"
+      | "getOptionDisabled"
+      | "getOptionLabel"
+      | "getOptionSelected"
+      | "groupBy"
+      | "loadingText"
+      | "noOptionsText"
+      | "renderInput"
+      | "renderOption"
+      | "placeholder"
+    > & {
+      branchPath?: BranchOption<TBranchOption>[];
+      enterBranchText?: string;
+      exitBranchText?: string;
+      /**
+       * @returns `true` to keep option and `false` to filter.
+       */
+      filterOptions?: (
+        option: Option<T, TBranchOption> | BranchOption<TBranchOption>,
+        state: FilterOptionsState<
+          Option<T, TBranchOption> | BranchOption<TBranchOption>
+        >
+      ) => boolean;
+      freeSolo?: FreeSolo;
+      getOptionLabel?: (
+        option:
+          | T
+          | BranchOption<TBranchOption>
+          | FreeSoloValueMapping<FreeSolo, TBranchOption>,
+        branchPath?: BranchOption<TBranchOption>[]
+      ) => string;
+      getOptionDisabled?: (
+        option: T | BranchOption<TBranchOption>,
+        branchPath?: BranchOption<TBranchOption>[]
+      ) => boolean;
+      getOptionSelected?: (
+        option: T,
+        value: T,
+        branchPath?: {
+          option: BranchOption<TBranchOption>[];
+          value: BranchOption<TBranchOption>[];
+        }
+      ) => boolean;
+      groupBy?: (
+        option: T | BranchOption<TBranchOption>,
+        branchPath?: BranchOption<TBranchOption>[]
+      ) => string;
+      loadingText?: string;
+      noOptionsText?: string;
+      onBranchChange: (
+        event: React.ChangeEvent<Record<string, unknown>>,
+        branchOption: BranchOption<TBranchOption> | undefined,
+        branchPath: BranchOption<TBranchOption>[],
+        direction: BranchSelectDirection,
+        reason: BranchSelectReason
+      ) => void | Promise<void>;
+      renderInput?: (
+        params: AutocompleteRenderInputParams | TextFieldProps
+      ) => JSX.Element;
+      /**
+       * Goes up one branch on escape key press; unless at root, then default
+       * MUI Autocomplete behavior.
+       * */
+      upBranchOnEsc?: boolean;
+    };
 
 const TreeSelect = <
   T,
@@ -391,6 +409,7 @@ const TreeSelect = <
     freeSolo,
     getOptionDisabled: getOptionDisabledProp,
     getOptionLabel: getOptionLabelProp,
+    groupBy: groupByProp,
     inputValue: inputValueProp,
     onInputChange: onInputChangeProp,
     onBranchChange,
@@ -435,22 +454,48 @@ const TreeSelect = <
     "defaultValue"
   >;
 
-  const [state, setState] = useState<TreeSelectState>({
+  const [state, setState] = useState<TreeSelectState>(() => ({
     branchPath: [],
     inputValue: (() => {
       if (!multiple && !isInputControlled) {
         if ((valueProp ?? NULLISH) !== NULLISH) {
-          return getOptionLabelProp
-            ? getOptionLabelProp(valueProp as Option<T, TBranchOption>)
-            : convertToString(valueProp);
+          const value = valueProp as NonNullable<
+            TreeSelectProps<T, TBranchOption, false, true, false>["value"]
+          >;
+
+          if (getOptionLabelProp) {
+            if (value instanceof Option) {
+              return getOptionLabelProp(value.valueOf(), value.branchPath);
+            } else if (value instanceof FreeSoloValue) {
+              return getOptionLabelProp(value, value.branchPath);
+            } else {
+              return getOptionLabelProp(value);
+            }
+          } else {
+            return convertToString(value);
+          }
         } else if ((defaultValue ?? NULLISH) !== NULLISH) {
-          return getOptionLabelProp
-            ? getOptionLabelProp(
-                defaultValue instanceof Option
-                  ? defaultValue
-                  : new Option<T, TBranchOption>(defaultValue as T)
-              )
-            : convertToString(defaultValue);
+          const value = valueProp as NonNullable<
+            TreeSelectProps<
+              T,
+              TBranchOption,
+              false,
+              true,
+              false
+            >["defaultValue"]
+          >;
+
+          if (getOptionLabelProp) {
+            if (value instanceof Option) {
+              return getOptionLabelProp(value.valueOf(), value.branchPath);
+            } else if (value instanceof FreeSoloValue) {
+              return getOptionLabelProp(value, value.branchPath);
+            } else {
+              return getOptionLabelProp(value);
+            }
+          } else {
+            return convertToString(value);
+          }
         }
       }
       return "";
@@ -476,7 +521,7 @@ const TreeSelect = <
           : new Option<T, TBranchOption>(defaultValue as T);
       }
     })() as TValue,
-  });
+  }));
 
   const branchPath = (isBranchPathControlled
     ? branchPathProp
@@ -500,7 +545,13 @@ const TreeSelect = <
       } else if (loading) {
         return true;
       } else if (getOptionDisabledProp) {
-        return getOptionDisabledProp(option);
+        if (option instanceof Option) {
+          return getOptionDisabledProp(option.valueOf(), option.branchPath);
+        } else if (option instanceof FreeSoloValue) {
+          return getOptionDisabledProp(option, option.branchPath);
+        } else {
+          return getOptionDisabledProp(option, branchPath);
+        }
       } else {
         return false;
       }
@@ -511,16 +562,24 @@ const TreeSelect = <
   const getOptionLabel = useCallback<
     (option: TOption | FreeSoloValueMapping<FreeSolo, TBranchOption>) => string
   >(
-    (option: TOption | FreeSoloValueMapping<FreeSolo, TBranchOption>) => {
+    (
+      option: TOption | FreeSoloValueMapping<FreeSolo, TBranchOption>
+    ): string => {
       if (option === LOADING_OPTION) {
         return loadingText;
       } else if (getOptionLabelProp) {
-        return getOptionLabelProp(option);
+        if (option instanceof Option) {
+          return getOptionLabelProp(option.valueOf(), option.branchPath);
+        } else if (option instanceof FreeSoloValue) {
+          return getOptionLabelProp(option, option.branchPath);
+        } else {
+          return getOptionLabelProp(option, branchPath);
+        }
       } else {
-        return convertToString(option.toString());
+        return convertToString(option);
       }
     },
-    [getOptionLabelProp, loadingText]
+    [getOptionLabelProp, loadingText, branchPath]
   );
 
   const getOptionSelected = useCallback<
@@ -539,13 +598,32 @@ const TreeSelect = <
       ) {
         return false;
       } else if (getOptionSelectedProp) {
-        return getOptionSelectedProp(option, value);
+        return getOptionSelectedProp(option.valueOf(), value.valueOf(), {
+          option: option.branchPath,
+          value: value.branchPath,
+        });
       } else {
-        return option.value === value.value;
+        return option.valueOf() === value.valueOf();
       }
     },
     [getOptionSelectedProp]
   );
+
+  const groupBy = useMemo<((option: TOption) => string) | undefined>(() => {
+    if (!groupByProp) {
+      return undefined;
+    }
+
+    return (option) => {
+      if (option === LOADING_OPTION) {
+        return "";
+      } else if (option instanceof Option) {
+        return groupByProp(option.valueOf(), option.branchPath);
+      } else {
+        return groupByProp(option, branchPath);
+      }
+    };
+  }, [groupByProp, branchPath]);
 
   const filterOptions = useMemo<
     (
@@ -1019,7 +1097,7 @@ const TreeSelect = <
             } else {
               const parsedValue =
                 value instanceof Option
-                  ? new Option(value.value, branchPath)
+                  ? new Option(value.valueOf(), branchPath)
                   : new FreeSoloValue(value, branchPath);
 
               const newValue = (multiple
@@ -1206,6 +1284,7 @@ const TreeSelect = <
       getOptionLabel={getOptionLabel}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       getOptionSelected={getOptionSelected as any}
+      groupBy={groupBy}
       inputValue={inputValue}
       ListboxProps={ListboxProps}
       loading={loading && branchPath.length === 0}

@@ -1,11 +1,6 @@
 import React, { useCallback, useState } from "react";
 import ReactDOM from "react-dom";
-import TreeSelect, {
-  Option,
-  BranchOption,
-  FreeSoloValue,
-  defaultInput,
-} from "./index";
+import TreeSelect, { BranchOption, FreeSoloValue, defaultInput } from "./index";
 
 type TBranchOption = { label: string };
 
@@ -16,7 +11,7 @@ const generateOptions = (
   randomAsync = true
 ): TOption[] | Promise<TOption[]> => {
   const depth = branchOption
-    ? Number.parseInt(branchOption.value.label.split(":")[0]) + 1
+    ? Number.parseInt(branchOption.valueOf().label.split(":")[0]) + 1
     : 0;
 
   const options: TOption[] = [];
@@ -37,17 +32,14 @@ const generateOptions = (
 };
 
 const getOptionLabel = (
-  option:
-    | Option<string, TBranchOption>
-    | BranchOption<TBranchOption>
-    | FreeSoloValue
+  option: string | BranchOption<TBranchOption> | FreeSoloValue
 ): string => {
   if (option instanceof BranchOption) {
-    return `Branch ${option.value.label}`;
+    return `Branch ${option.valueOf().label}`;
   } else if (option instanceof FreeSoloValue) {
     return `${option}`;
   } else {
-    return option.toString();
+    return option;
   }
 };
 
