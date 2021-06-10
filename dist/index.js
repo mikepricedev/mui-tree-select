@@ -18,9 +18,23 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __classPrivateFieldSet = (this && this.__classPrivateFieldSet) || function (receiver, privateMap, value) {
+    if (!privateMap.has(receiver)) {
+        throw new TypeError("attempted to set private field on non-instance");
+    }
+    privateMap.set(receiver, value);
+    return value;
+};
+var __classPrivateFieldGet = (this && this.__classPrivateFieldGet) || function (receiver, privateMap) {
+    if (!privateMap.has(receiver)) {
+        throw new TypeError("attempted to get private field on non-instance");
+    }
+    return privateMap.get(receiver);
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
+var __value_;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.defaultInput = exports.mergeInputEndAdornment = exports.mergeInputStartAdornment = exports.BranchOption = exports.Option = exports.FreeSoloValue = void 0;
 const react_1 = __importStar(require("react"));
@@ -61,22 +75,23 @@ const primaryTypographyProps = {
 class FreeSoloValue extends String {
     constructor(value, branchPath = []) {
         super(value);
-        this.value = value;
         this.branchPath = branchPath;
     }
 }
 exports.FreeSoloValue = FreeSoloValue;
 class BaseOption {
     constructor(value) {
-        this.value = value;
+        __value_.set(this, void 0);
+        __classPrivateFieldSet(this, __value_, value);
     }
     valueOf() {
-        return this.value;
+        return __classPrivateFieldGet(this, __value_);
     }
     toString() {
-        return convertToString(this.value);
+        return convertToString(__classPrivateFieldGet(this, __value_));
     }
 }
+__value_ = new WeakMap();
 /**
  * Wrapper for all option values that includes the branch path to the option.
  */
@@ -145,7 +160,7 @@ const defaultInput = (params) => react_1.default.createElement(core_1.TextField,
 exports.defaultInput = defaultInput;
 const TreeSelect = (props) => {
     const classes = useStyles();
-    const { autoSelect, branchPath: branchPathProp, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, inputValue: inputValueProp, onInputChange: onInputChangeProp, onBranchChange, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp, loading, loadingText = DEFAULT_LOADING_TEXT, multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, options: optionsProp, 
+    const { autoSelect, branchPath: branchPathProp, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, groupBy: groupByProp, inputValue: inputValueProp, onInputChange: onInputChangeProp, onBranchChange, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp, loading, loadingText = DEFAULT_LOADING_TEXT, multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, options: optionsProp, 
     /**
      * Renders a TextField
      */
@@ -159,21 +174,43 @@ const TreeSelect = (props) => {
     const isInputControlled = inputValueProp !== undefined;
     const isValueControlled = valueProp !== undefined;
     const autoCompleteProps = rest;
-    const [state, setState] = react_1.useState({
+    const [state, setState] = react_1.useState(() => ({
         branchPath: [],
         inputValue: (() => {
             if (!multiple && !isInputControlled) {
                 if ((valueProp !== null && valueProp !== void 0 ? valueProp : NULLISH) !== NULLISH) {
-                    return getOptionLabelProp
-                        ? getOptionLabelProp(valueProp)
-                        : convertToString(valueProp);
+                    const value = valueProp;
+                    if (getOptionLabelProp) {
+                        if (value instanceof Option) {
+                            return getOptionLabelProp(value.valueOf(), value.branchPath);
+                        }
+                        else if (value instanceof FreeSoloValue) {
+                            return getOptionLabelProp(value, value.branchPath);
+                        }
+                        else {
+                            return getOptionLabelProp(value);
+                        }
+                    }
+                    else {
+                        return convertToString(value);
+                    }
                 }
                 else if ((defaultValue !== null && defaultValue !== void 0 ? defaultValue : NULLISH) !== NULLISH) {
-                    return getOptionLabelProp
-                        ? getOptionLabelProp(defaultValue instanceof Option
-                            ? defaultValue
-                            : new Option(defaultValue))
-                        : convertToString(defaultValue);
+                    const value = valueProp;
+                    if (getOptionLabelProp) {
+                        if (value instanceof Option) {
+                            return getOptionLabelProp(value.valueOf(), value.branchPath);
+                        }
+                        else if (value instanceof FreeSoloValue) {
+                            return getOptionLabelProp(value, value.branchPath);
+                        }
+                        else {
+                            return getOptionLabelProp(value);
+                        }
+                    }
+                    else {
+                        return convertToString(value);
+                    }
                 }
             }
             return "";
@@ -197,7 +234,7 @@ const TreeSelect = (props) => {
                     : new Option(defaultValue);
             }
         })(),
-    });
+    }));
     const branchPath = (isBranchPathControlled
         ? branchPathProp
         : state.branchPath);
@@ -217,7 +254,15 @@ const TreeSelect = (props) => {
             return true;
         }
         else if (getOptionDisabledProp) {
-            return getOptionDisabledProp(option);
+            if (option instanceof Option) {
+                return getOptionDisabledProp(option.valueOf(), option.branchPath);
+            }
+            else if (option instanceof FreeSoloValue) {
+                return getOptionDisabledProp(option, option.branchPath);
+            }
+            else {
+                return getOptionDisabledProp(option, branchPath);
+            }
         }
         else {
             return false;
@@ -228,12 +273,20 @@ const TreeSelect = (props) => {
             return loadingText;
         }
         else if (getOptionLabelProp) {
-            return getOptionLabelProp(option);
+            if (option instanceof Option) {
+                return getOptionLabelProp(option.valueOf(), option.branchPath);
+            }
+            else if (option instanceof FreeSoloValue) {
+                return getOptionLabelProp(option, option.branchPath);
+            }
+            else {
+                return getOptionLabelProp(option, branchPath);
+            }
         }
         else {
-            return convertToString(option.toString());
+            return convertToString(option);
         }
-    }, [getOptionLabelProp, loadingText]);
+    }, [getOptionLabelProp, loadingText, branchPath]);
     const getOptionSelected = react_1.useCallback((option, value) => {
         // An Value is NEVER a FreeSoloValue (sanity); BranchOption and
         // LOADING_OPTION are NEVER selectable.
@@ -243,12 +296,31 @@ const TreeSelect = (props) => {
             return false;
         }
         else if (getOptionSelectedProp) {
-            return getOptionSelectedProp(option, value);
+            return getOptionSelectedProp(option.valueOf(), value.valueOf(), {
+                option: option.branchPath,
+                value: value.branchPath,
+            });
         }
         else {
-            return option.value === value.value;
+            return option.valueOf() === value.valueOf();
         }
     }, [getOptionSelectedProp]);
+    const groupBy = react_1.useMemo(() => {
+        if (!groupByProp) {
+            return undefined;
+        }
+        return (option) => {
+            if (option === LOADING_OPTION) {
+                return "";
+            }
+            else if (option instanceof Option) {
+                return groupByProp(option.valueOf(), option.branchPath);
+            }
+            else {
+                return groupByProp(option, branchPath);
+            }
+        };
+    }, [groupByProp, branchPath]);
     const filterOptions = react_1.useMemo(() => {
         const filterOptions = filterOptionsProp
             ? (options, state) => {
@@ -500,7 +572,7 @@ const TreeSelect = (props) => {
                     }
                     else {
                         const parsedValue = value instanceof Option
-                            ? new Option(value.value, branchPath)
+                            ? new Option(value.valueOf(), branchPath)
                             : new FreeSoloValue(value, branchPath);
                         const newValue = (multiple
                             ? [...args[1].slice(0, -1), parsedValue]
@@ -632,7 +704,7 @@ const TreeSelect = (props) => {
     ]);
     return (react_1.default.createElement(Autocomplete_1.default, Object.assign({}, autoCompleteProps, { autoSelect: autoSelect, debug: debug, disableClearable: disableClearable, disableCloseOnSelect: disableCloseOnSelect, filterOptions: filterOptions, freeSolo: freeSolo, getOptionDisabled: getOptionDisabled, getOptionLabel: getOptionLabel, 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        getOptionSelected: getOptionSelected, inputValue: inputValue, ListboxProps: ListboxProps, loading: loading && branchPath.length === 0, loadingText: loadingText, multiple: multiple, onBlur: onBlur, onInputChange: onInputChange, onChange: onChange, onClose: onClose, onOpen: onOpen, open: open !== null && open !== void 0 ? open : state.open, 
+        getOptionSelected: getOptionSelected, groupBy: groupBy, inputValue: inputValue, ListboxProps: ListboxProps, loading: loading && branchPath.length === 0, loadingText: loadingText, multiple: multiple, onBlur: onBlur, onInputChange: onInputChange, onChange: onChange, onClose: onClose, onOpen: onOpen, open: open !== null && open !== void 0 ? open : state.open, 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         options: options, renderInput: renderInput, renderOption: renderOption, 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
