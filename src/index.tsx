@@ -838,7 +838,9 @@ const TreeSelect = <
         multiple ||
         !value ||
         !(value instanceof Option || value instanceof FreeSoloValue) ||
-        !value.branchPath.length
+        !value.branchPath.length ||
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getOptionLabel(value as any) !== (params?.inputProps as any)?.value
       ) {
         return renderInputProp(params);
       } else {
