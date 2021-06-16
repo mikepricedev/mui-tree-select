@@ -8,6 +8,7 @@ import React, {
 import Autocomplete, {
   AutocompleteProps,
   AutocompleteRenderInputParams,
+  AutocompleteRenderOptionState,
 } from "@material-ui/lab/Autocomplete";
 import {
   AutocompleteChangeReason,
@@ -38,6 +39,7 @@ import ListItemText, {
 } from "@material-ui/core/ListItemText";
 import Tooltip from "@material-ui/core/Tooltip";
 import { Typography } from "@material-ui/core";
+import { ReactNode } from "react";
 
 const NULLISH = Symbol("NULLISH");
 
@@ -359,6 +361,14 @@ export type TreeSelectProps<
       renderInput?: (
         params: AutocompleteRenderInputParams | TextFieldProps
       ) => JSX.Element;
+      renderOption?: (
+        option: Option<T, TBranchOption> | BranchOption<TBranchOption>,
+        state: AutocompleteRenderOptionState & {
+          getOptionLabel: (
+            option: Option<T, TBranchOption> | BranchOption<TBranchOption>
+          ) => string;
+        }
+      ) => ReactNode;
       /**
        * Goes up one branch on escape key press; unless at root, then default
        * MUI Autocomplete behavior.
@@ -428,6 +438,7 @@ const TreeSelect = <
      * Renders a TextField
      */
     renderInput: renderInputProp = defaultInput,
+    renderOption: renderOptionProp,
     renderTags: renderTagsProp,
     value: valuePropRaw,
     upBranchOnEsc,
@@ -876,7 +887,7 @@ const TreeSelect = <
       >["renderOption"]
     >
   >(
-    (option) => {
+    (option, state) => {
       if (option === LOADING_OPTION) {
         return (
           <div className="MuiAutocomplete-loading">
@@ -921,12 +932,26 @@ const TreeSelect = <
           </Box>
         );
       } else if (option instanceof BranchOption) {
+        const renderOptionResult =
+          renderOptionProp?.call(null, option, {
+            ...state,
+            getOptionLabel,
+          }) || getOptionLabel(option);
         return (
           <Box width="100%" display="flex">
             <Box flexGrow="1" clone>
-              <Typography variant="inherit" color="inherit" align="left" noWrap>
-                {getOptionLabel(option)}
-              </Typography>
+              {typeof renderOptionResult === "string" ? (
+                <Typography
+                  variant="inherit"
+                  color="inherit"
+                  align="left"
+                  noWrap
+                >
+                  {renderOptionResult}
+                </Typography>
+              ) : (
+                renderOptionResult
+              )}
             </Box>
             <Tooltip title={enterBranchText}>
               <ChevronRightIcon />
@@ -934,14 +959,23 @@ const TreeSelect = <
           </Box>
         );
       } else {
-        return (
+        const renderOptionResult =
+          renderOptionProp?.call(null, option, {
+            ...state,
+            getOptionLabel,
+          }) || getOptionLabel(option);
+
+        return typeof renderOptionResult === "string" ? (
           <Typography variant="inherit" color="inherit" align="left" noWrap>
-            {getOptionLabel(option)}
+            {renderOptionResult}
           </Typography>
+        ) : (
+          renderOptionResult
         );
       }
     },
     [
+      renderOptionProp,
       getOptionLabel,
       classes.optionNode,
       branchPath,
