@@ -449,10 +449,13 @@ const TreeSelect = (props) => {
         }
     }, [setState, onOpenProp]);
     const renderInput = react_1.useCallback((params) => {
+        var _a;
         if (multiple ||
             !value ||
             !(value instanceof Option || value instanceof FreeSoloValue) ||
-            !value.branchPath.length) {
+            !value.branchPath.length ||
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            getOptionLabel(value) !== ((_a = params === null || params === void 0 ? void 0 : params.inputProps) === null || _a === void 0 ? void 0 : _a.value)) {
             return renderInputProp(params);
         }
         else {
