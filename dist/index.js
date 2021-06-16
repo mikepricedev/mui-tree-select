@@ -164,7 +164,7 @@ const TreeSelect = (props) => {
     /**
      * Renders a TextField
      */
-    renderInput: renderInputProp = exports.defaultInput, renderTags: renderTagsProp, value: valuePropRaw, upBranchOnEsc, ...rest } = props;
+    renderInput: renderInputProp = exports.defaultInput, renderOption: renderOptionProp, renderTags: renderTagsProp, value: valuePropRaw, upBranchOnEsc, ...rest } = props;
     const valueProp = react_1.useMemo(() => !valuePropRaw ||
         valuePropRaw instanceof Option ||
         valuePropRaw instanceof FreeSoloValue
@@ -466,7 +466,7 @@ const TreeSelect = (props) => {
             });
         }
     }, [renderInputProp, multiple, value, getOptionLabel]);
-    const renderOption = react_1.useCallback((option) => {
+    const renderOption = react_1.useCallback((option, state) => {
         if (option === LOADING_OPTION) {
             return (react_1.default.createElement("div", { className: "MuiAutocomplete-loading" }, getOptionLabel(LOADING_OPTION)));
         }
@@ -484,16 +484,24 @@ const TreeSelect = (props) => {
                 react_1.default.createElement(Skeleton_1.default, { animation: "wave" })));
         }
         else if (option instanceof BranchOption) {
+            const renderOptionResult = (renderOptionProp === null || renderOptionProp === void 0 ? void 0 : renderOptionProp.call(null, option, {
+                ...state,
+                getOptionLabel,
+            })) || getOptionLabel(option);
             return (react_1.default.createElement(core_1.Box, { width: "100%", display: "flex" },
-                react_1.default.createElement(core_1.Box, { flexGrow: "1", clone: true },
-                    react_1.default.createElement(core_2.Typography, { variant: "inherit", color: "inherit", align: "left", noWrap: true }, getOptionLabel(option))),
+                react_1.default.createElement(core_1.Box, { flexGrow: "1", clone: true }, typeof renderOptionResult === "string" ? (react_1.default.createElement(core_2.Typography, { variant: "inherit", color: "inherit", align: "left", noWrap: true }, renderOptionResult)) : (renderOptionResult)),
                 react_1.default.createElement(Tooltip_1.default, { title: enterBranchText },
                     react_1.default.createElement(ChevronRight_1.default, null))));
         }
         else {
-            return (react_1.default.createElement(core_2.Typography, { variant: "inherit", color: "inherit", align: "left", noWrap: true }, getOptionLabel(option)));
+            const renderOptionResult = (renderOptionProp === null || renderOptionProp === void 0 ? void 0 : renderOptionProp.call(null, option, {
+                ...state,
+                getOptionLabel,
+            })) || getOptionLabel(option);
+            return typeof renderOptionResult === "string" ? (react_1.default.createElement(core_2.Typography, { variant: "inherit", color: "inherit", align: "left", noWrap: true }, renderOptionResult)) : (renderOptionResult);
         }
     }, [
+        renderOptionProp,
         getOptionLabel,
         classes.optionNode,
         branchPath,

@@ -1,7 +1,8 @@
 import React from "react";
-import { AutocompleteProps, AutocompleteRenderInputParams } from "@material-ui/lab/Autocomplete";
+import { AutocompleteProps, AutocompleteRenderInputParams, AutocompleteRenderOptionState } from "@material-ui/lab/Autocomplete";
 import { AutocompleteChangeReason, AutocompleteCloseReason, FilterOptionsState } from "@material-ui/lab/useAutocomplete";
 import { InputProps, TextFieldProps } from "@material-ui/core";
+import { ReactNode } from "react";
 /**
  * Used to distinguish free solo entries from string values.
  */
@@ -56,6 +57,9 @@ export declare type TreeSelectProps<T, TBranchOption, Multiple extends boolean |
     noOptionsText?: string;
     onBranchChange: (event: React.ChangeEvent<Record<string, unknown>>, branchOption: BranchOption<TBranchOption> | undefined, branchPath: BranchOption<TBranchOption>[], direction: BranchSelectDirection, reason: BranchSelectReason) => void | Promise<void>;
     renderInput?: (params: AutocompleteRenderInputParams | TextFieldProps) => JSX.Element;
+    renderOption?: (option: Option<T, TBranchOption> | BranchOption<TBranchOption>, state: AutocompleteRenderOptionState & {
+        getOptionLabel: (option: Option<T, TBranchOption> | BranchOption<TBranchOption>) => string;
+    }) => ReactNode;
     /**
      * Goes up one branch on escape key press; unless at root, then default
      * MUI Autocomplete behavior.
