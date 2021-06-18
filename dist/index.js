@@ -158,7 +158,7 @@ exports.mergeInputEndAdornment = mergeInputEndAdornment;
  */
 const defaultInput = (params) => react_1.default.createElement(core_1.TextField, Object.assign({}, params));
 exports.defaultInput = defaultInput;
-const TreeSelect = (props) => {
+const TreeSelect = (props, ref) => {
     const classes = useStyles();
     const { autoSelect, branchPath: branchPathProp, debug, defaultValue, disableClearable, disableCloseOnSelect, enterBranchText = "Enter", exitBranchText = "Exit", filterOptions: filterOptionsProp, freeSolo, getOptionDisabled: getOptionDisabledProp, getOptionLabel: getOptionLabelProp, groupBy: groupByProp, inputValue: inputValueProp, onInputChange: onInputChangeProp, onBranchChange, getOptionSelected: getOptionSelectedProp, ListboxProps: ListboxPropsProp, loading, loadingText = DEFAULT_LOADING_TEXT, multiple, onBlur: onBlurProp, onClose: onCloseProp, onChange: onChangeProp, onOpen: onOpenProp, open, options: optionsProp, 
     /**
@@ -711,7 +711,7 @@ const TreeSelect = (props) => {
         loading,
         classes.listBoxWLoadingBranchNode,
     ]);
-    return (react_1.default.createElement(Autocomplete_1.default, Object.assign({}, autoCompleteProps, { autoSelect: autoSelect, debug: debug, disableClearable: disableClearable, disableCloseOnSelect: disableCloseOnSelect, filterOptions: filterOptions, freeSolo: freeSolo, getOptionDisabled: getOptionDisabled, getOptionLabel: getOptionLabel, 
+    return (react_1.default.createElement(Autocomplete_1.default, Object.assign({}, autoCompleteProps, { ref: ref, autoSelect: autoSelect, debug: debug, disableClearable: disableClearable, disableCloseOnSelect: disableCloseOnSelect, filterOptions: filterOptions, freeSolo: freeSolo, getOptionDisabled: getOptionDisabled, getOptionLabel: getOptionLabel, 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         getOptionSelected: getOptionSelected, groupBy: groupBy, inputValue: inputValue, ListboxProps: ListboxProps, loading: loading && branchPath.length === 0, loadingText: loadingText, multiple: multiple, onBlur: onBlur, onInputChange: onInputChange, onChange: onChange, onClose: onClose, onOpen: onOpen, open: open !== null && open !== void 0 ? open : state.open, 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -721,5 +721,5 @@ const TreeSelect = (props) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         value: value })));
 };
-exports.default = TreeSelect;
+exports.default = react_1.default.forwardRef(TreeSelect);
 //# sourceMappingURL=index.js.map
