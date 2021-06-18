@@ -41,6 +41,14 @@ import Tooltip from "@material-ui/core/Tooltip";
 import { Typography } from "@material-ui/core";
 import { ReactNode } from "react";
 
+// https://stackoverflow.com/a/58473012
+declare module "react" {
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  function forwardRef<T, P = {}>(
+    render: (props: P, ref: React.Ref<T>) => React.ReactElement | null
+  ): (props: P & React.RefAttributes<T>) => React.ReactElement | null;
+}
+
 const NULLISH = Symbol("NULLISH");
 
 const lastElm = <T extends unknown>(arr: T[]): T | undefined =>
@@ -383,7 +391,14 @@ const TreeSelect = <
   DisableClearable extends boolean | undefined,
   FreeSolo extends boolean | undefined
 >(
-  props: TreeSelectProps<T, TBranchOption, Multiple, DisableClearable, FreeSolo>
+  props: TreeSelectProps<
+    T,
+    TBranchOption,
+    Multiple,
+    DisableClearable,
+    FreeSolo
+  >,
+  ref: React.ForwardedRef<unknown>
 ): JSX.Element => {
   type TOption =
     | BranchOption<TBranchOption>
@@ -1307,6 +1322,7 @@ const TreeSelect = <
   return (
     <Autocomplete
       {...autoCompleteProps}
+      ref={ref}
       autoSelect={autoSelect}
       debug={debug}
       disableClearable={disableClearable}
@@ -1340,5 +1356,4 @@ const TreeSelect = <
     />
   );
 };
-
-export default TreeSelect;
+export default React.forwardRef(TreeSelect);
