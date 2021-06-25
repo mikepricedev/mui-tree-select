@@ -83,7 +83,7 @@ ReactDOM.render(<Sample />, document.getElementById("root"));
 Branch nodes are wrapped in the class `BranchNode`. This class ties branch values and types to the tree.
 
 ```
-import {BranchNode, ValueNode } from "mui-tree-select";
+import {BranchNode} from "mui-tree-select";
 
 // path: foo > bar > baz
 const bazBranch = new BranchNode("baz", ["foo", "bar" ]);
@@ -106,9 +106,11 @@ const value = ValueNode("myValue", new BranchNode("bar", ["foo"]);
 console.log(value.valueOf());
 // myValue
 
-console.log(new FreeSoloNode("Hello!").toString());
+// Free Solo value at path: foo > bar
+console.log(new FreeSoloNode("Hello!").toString(), ["foo", "bar"]);
 // Hello!
 
+// Note: alternative methods for adding the branch path to ValueNode and FreeSoloNode.  Both are interchangeable.
 ```
 
 ### Lab
@@ -136,9 +138,8 @@ type Branch = {branch:string};
     ...
   }, [])}
 
-  getOptionLabel={useCallback((value) => value.value, [])}
+  getOptionLabel={useCallback((value) => value instanceof BranchNode ? value.branch : value.value, [])}
 
   ...
 />
-
 ```
