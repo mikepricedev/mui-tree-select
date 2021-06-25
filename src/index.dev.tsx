@@ -1,17 +1,22 @@
 import React, { useCallback, useState } from "react";
 import ReactDOM from "react-dom";
-import TreeSelect, { BranchOption, FreeSoloValue, defaultInput } from "./index";
+import TreeSelect, {
+  BranchNode,
+  FreeSoloNode,
+  ValueNode,
+  defaultInput,
+} from "./index";
 
 type TBranchOption = { label: string };
 
-type TOption = string | BranchOption<TBranchOption>;
+type TOption = string | BranchNode<TBranchOption>;
 
 const generateOptions = (
-  branchOption?: BranchOption<{ label: string }>,
+  parentBranch: BranchNode<{ label: string }> | null,
   randomAsync = true
 ): TOption[] | Promise<TOption[]> => {
-  const depth = branchOption
-    ? Number.parseInt(branchOption.valueOf().label.split(":")[0]) + 1
+  const depth = parentBranch
+    ? Number.parseInt(parentBranch.valueOf().label.split(":")[0]) + 1
     : 0;
 
   const options: TOption[] = [];
@@ -19,7 +24,7 @@ const generateOptions = (
   for (let i = 0, len = Math.ceil(Math.random() * 10); i < len; i++) {
     const option = `${depth}:${i}`;
 
-    options.push(new BranchOption({ label: option }), option);
+    options.push(new BranchNode({ label: option }, parentBranch), option);
   }
 
   return randomAsync && Math.random() > 0.5
@@ -32,64 +37,65 @@ const generateOptions = (
 };
 
 const getOptionLabel = (
-  option: string | BranchOption<TBranchOption> | FreeSoloValue
-): string => {
-  if (option instanceof BranchOption) {
-    return `Branch ${option.valueOf().label}`;
-  } else if (option instanceof FreeSoloValue) {
-    return `${option}`;
-  } else {
-    return option;
-  }
-};
+  option:
+    | ValueNode<string, TBranchOption>
+    | BranchNode<TBranchOption>
+    | FreeSoloNode
+): string =>
+  option instanceof BranchNode ? option.valueOf().label : option.toString();
 
-const defaultBranchPath = [
-  new BranchOption({ label: "0:5" }),
-  new BranchOption({ label: "1:2" }),
-];
+const defaultBranch = BranchNode.createBranchNode([
+  { label: "0:5" },
+  { label: "1:2" },
+]);
 
 const Sample: React.FC = () => {
   const [state, setState] = useState<{
     single: {
-      value: string | FreeSoloValue<TBranchOption> | null;
+      value:
+        | ValueNode<string, TBranchOption>
+        | FreeSoloNode<TBranchOption>
+        | null;
       options: (string | TOption)[];
       loading: boolean;
-      branchPath: BranchOption<TBranchOption>[];
+      branch: BranchNode<TBranchOption> | null;
     };
     multiple: {
-      value: (string | FreeSoloValue<TBranchOption>)[];
+      value: (ValueNode<string, TBranchOption> | FreeSoloNode<TBranchOption>)[];
       options: (string | TOption)[];
       loading: boolean;
-      branchPath: BranchOption<TBranchOption>[];
+      branch: BranchNode<TBranchOption> | null;
     };
   }>({
     single: {
       value: null,
-      options: generateOptions(defaultBranchPath[1], false) as TOption[],
+      options: generateOptions(defaultBranch, false) as TOption[],
       loading: false,
-      branchPath: defaultBranchPath,
+      branch: defaultBranch,
     },
     multiple: {
       value: [],
-      options: generateOptions(undefined, false) as TOption[],
+      options: generateOptions(null, false) as TOption[],
       loading: false,
-      branchPath: [],
+      branch: null,
     },
   });
 
   return (
     <div style={{ width: 350, padding: 16 }}>
       <TreeSelect<string, TBranchOption, false, false, true>
-        branchPath={state.single.branchPath}
-        onBranchChange={(_, branchOption, branchPath) => {
-          const options = generateOptions(branchOption);
+        freeSolo
+        autoSelect={false}
+        branch={state.single.branch}
+        onBranchChange={(_, branch) => {
+          const options = generateOptions(branch);
 
           if (options instanceof Promise) {
             setState((state) => ({
               ...state,
               single: {
                 ...state.single,
-                branchPath,
+                branch,
                 loading: true,
               },
             }));
@@ -108,7 +114,7 @@ const Sample: React.FC = () => {
               ...state,
               single: {
                 ...state.single,
-                branchPath,
+                branch,
                 options,
                 loading: false,
               },
@@ -118,7 +124,6 @@ const Sample: React.FC = () => {
         options={state.single.options}
         loading={state.single.loading}
         getOptionLabel={getOptionLabel}
-        freeSolo
         renderInput={useCallback(
           (params) =>
             defaultInput({

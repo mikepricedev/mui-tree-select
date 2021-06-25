@@ -1,45 +1,24 @@
-import React, {
-  forwardRef,
-  Fragment,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import React, { useCallback, ReactNode, forwardRef, Fragment } from "react";
 import Autocomplete, {
+  AutocompleteChangeReason,
   AutocompleteProps,
   AutocompleteRenderInputParams,
-  AutocompleteRenderOptionState,
 } from "@material-ui/lab/Autocomplete";
-import {
-  AutocompleteChangeReason,
-  AutocompleteCloseReason,
-  createFilterOptions,
-  FilterOptionsState,
-  Value,
-} from "@material-ui/lab/useAutocomplete";
-import Skeleton from "@material-ui/lab/Skeleton";
-import {
-  Box,
-  Chip,
-  ChipProps,
-  InputProps,
-  SvgIcon,
-  SvgIconProps,
-  TextField,
-  TextFieldProps,
-} from "@material-ui/core";
-import { makeStyles, createStyles } from "@material-ui/styles";
-import { createMuiTheme } from "@material-ui/core/styles";
+import { createFilterOptions } from "@material-ui/lab/useAutocomplete";
+import TextField, { TextFieldProps } from "@material-ui/core/TextField";
+import makeStyles from "@material-ui/core/styles/makeStyles";
+import useControlled from "@material-ui/core/utils/useControlled";
+import { useRef } from "react";
+import { useMemo } from "react";
 import ChevronRightIcon from "@material-ui/icons/ChevronRight";
 import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
-import ListItem from "@material-ui/core/ListItem";
-import ListItemIcon from "@material-ui/core/ListItemIcon";
-import ListItemText, {
-  ListItemTextProps,
-} from "@material-ui/core/ListItemText";
+import Divider from "@material-ui/core/Divider";
+import Typography from "@material-ui/core/Typography";
 import Tooltip from "@material-ui/core/Tooltip";
-import { Typography } from "@material-ui/core";
-import { ReactNode } from "react";
+import Paper, { PaperProps } from "@material-ui/core/Paper";
+import Chip, { ChipProps } from "@material-ui/core/Chip";
+import { InputProps } from "@material-ui/core/Input";
+import SvgIcon, { SvgIconProps } from "@material-ui/core/SvgIcon";
 
 // https://stackoverflow.com/a/58473012
 declare module "react" {
@@ -49,83 +28,301 @@ declare module "react" {
   ): (props: P & React.RefAttributes<T>) => React.ReactElement | null;
 }
 
-const NULLISH = Symbol("NULLISH");
+export type PathDirection = "up" | "down";
 
-const lastElm = <T extends unknown>(arr: T[]): T | undefined =>
-  arr[arr.length - 1];
-
-const useStyles = makeStyles(
-  () =>
-    createStyles({
-      optionNode: {
-        margin: "-6px -16px",
-        width: "calc(100% + 32px)",
-      },
-      listBoxWLoadingBranchNode: {
-        "& > li:nth-child(2)": {
-          opacity: 1,
-        },
-      },
-    }),
-  { defaultTheme: createMuiTheme({}) }
-);
-const convertToString = (value: unknown): string =>
-  typeof value === "symbol" ? value.toString() : `${value}`;
-
-const primaryTypographyProps: NonNullable<
-  ListItemTextProps["primaryTypographyProps"]
-> = {
-  noWrap: true,
-};
-
-/**
- * Used to distinguish free solo entries from string values.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export class FreeSoloValue<TBranchOption = any> extends String {
-  constructor(
-    value: string,
-    readonly branchPath: BranchOption<TBranchOption>[] = []
-  ) {
-    super(value);
-  }
-}
-
-abstract class BaseOption<T> {
+abstract class BaseNode<T> {
   #_value_: T;
   constructor(value: T) {
     this.#_value_ = value;
   }
+
+  toString(): string {
+    return String(this.#_value_);
+  }
+
   valueOf(): T {
     return this.#_value_;
   }
 
-  toString(): string {
-    return convertToString(this.#_value_);
+  get [Symbol.toStringTag](): string {
+    return this.constructor.name;
+  }
+}
+
+export class BranchNode<TBranch> extends BaseNode<TBranch> {
+  #_parent_: BranchNode<TBranch> | null;
+  constructor(branch: TBranch);
+  constructor(branch: TBranch, parent: BranchNode<TBranch>);
+  constructor(branch: TBranch, branchPath: Iterable<TBranch>);
+  constructor(
+    branch: TBranch,
+    parent?: Iterable<TBranch> | BranchNode<TBranch> | null
+  );
+  constructor(
+    branch: TBranch,
+    parent: Iterable<TBranch> | BranchNode<TBranch> | null = null
+  ) {
+    super(branch);
+
+    if (parent === null || parent instanceof BranchNode) {
+      this.#_parent_ = parent;
+    } else {
+      this.#_parent_ = BranchNode.createBranchNode(parent);
+    }
+  }
+
+  /**
+   * Parent BranchNode
+   */
+  get parent(): BranchNode<TBranch> | null {
+    return this.#_parent_;
+  }
+
+  /**
+   * Iterates up the branch path starting with self.
+   */
+  *up(): IterableIterator<BranchNode<TBranch>> {
+    yield this;
+    let _parent = this.#_parent_;
+    while (_parent) {
+      yield _parent;
+      _parent = _parent.parent;
+    }
+  }
+
+  /**
+   * Iterates down the branch path finishing with self.
+   * @alias BranchNode.[Symbol.iterator]
+   */
+  *down(): IterableIterator<BranchNode<TBranch>> {
+    yield* this;
+  }
+
+  /**
+   * Iterates down the branch path finishing with self.
+   */
+  *[Symbol.iterator](): IterableIterator<BranchNode<TBranch>> {
+    if (this.#_parent_) {
+      yield* this.#_parent_;
+    }
+    yield this;
+  }
+
+  /**
+   * @param branchPath must iterate from the root "down" the branch path. Wraps
+   * the last branch option in the returned {@link BranchNode}.
+   */
+  static createBranchNode<T>(branchPath: Iterable<T>): BranchNode<T> {
+    let branchNode: BranchNode<T> | null = null;
+    for (const branch of branchPath) {
+      branchNode = new BranchNode(branch, branchNode);
+    }
+
+    return branchNode as BranchNode<T>;
+  }
+
+  static pathToString<T>(
+    branchNode: BranchNode<T>,
+    {
+      branchToSting = (branchNode) => branchNode.toString(),
+      delimiter = " > ",
+    }: {
+      branchToSting?: (branchNode: BranchNode<T>) => string;
+      delimiter?: string;
+    } = {}
+  ): string {
+    const iter = branchNode.down();
+    let iterResult = iter.next();
+
+    if (iterResult.done) {
+      return "";
+    }
+
+    let pathStr = branchToSting(iterResult.value);
+    iterResult = iter.next();
+    while (!iterResult.done) {
+      pathStr = pathStr + delimiter + branchToSting(iterResult.value);
+      iterResult = iter.next();
+    }
+
+    return pathStr;
   }
 }
 
 /**
- * Wrapper for all option values that includes the branch path to the option.
+ *  Wrapper for all options and values. Includes the branch path to the option.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export class Option<T, TBranchOption = any> extends BaseOption<T> {
+export class ValueNode<T, TBranch> extends BaseNode<T> {
+  #_parent_: BranchNode<TBranch> | null;
+  constructor(value: T);
+  constructor(value: T, parent: BranchNode<TBranch>);
+  constructor(value: T, branchPath: Iterable<TBranch>);
+  constructor(value: T, parent: Iterable<TBranch> | BranchNode<TBranch> | null);
   constructor(
     value: T,
-    readonly branchPath: BranchOption<TBranchOption>[] = []
+    parent: Iterable<TBranch> | BranchNode<TBranch> | null = null
   ) {
     super(value);
+
+    if (parent === null || parent instanceof BranchNode) {
+      this.#_parent_ = parent;
+    } else {
+      this.#_parent_ = BranchNode.createBranchNode(parent);
+    }
+  }
+
+  /**
+   * Parent BranchNode
+   */
+  get parent(): BranchNode<TBranch> | null {
+    return this.#_parent_;
+  }
+
+  /**
+   * Iterates up the branch path starting with {@link ValueNode.parent}.
+   */
+  *up(): IterableIterator<BranchNode<TBranch>> {
+    if (this.#_parent_) {
+      yield* this.#_parent_.up();
+    }
+  }
+
+  /**
+   * Iterates down the branch path finishing with {@link ValueNode.parent}.
+   */
+  *down(): IterableIterator<BranchNode<TBranch>> {
+    if (this.#_parent_) {
+      yield* this.#_parent_.down();
+    }
+  }
+
+  /**
+   * Iterates down the branch path finishing with {@link ValueNode.parent}.
+   */
+  *[Symbol.iterator](): IterableIterator<BranchNode<TBranch>> {
+    if (this.#_parent_) {
+      yield* this.#_parent_;
+    }
   }
 }
 
 /**
- * Indicates an option is a branch node.
+ * Used to tie free solo entries to the tree.
  */
-export class BranchOption<TBranchOption> extends BaseOption<TBranchOption> {}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export class FreeSoloNode<TBranch = any> extends ValueNode<string, TBranch> {}
 
-const DEFAULT_LOADING_TEXT = "Loading…" as const;
+export type BranchSelectReason = Extract<
+  AutocompleteChangeReason,
+  "select-option"
+>;
 
-const LOADING_OPTION = Symbol();
+export type FreeSoloValueMapping<
+  FreeSolo extends boolean | undefined,
+  TBranch
+> = FreeSolo extends true ? FreeSoloNode<TBranch> : never;
+
+export type TreeSelectProps<
+  T,
+  TBranch,
+  Multiple extends boolean | undefined,
+  DisableClearable extends boolean | undefined,
+  FreeSolo extends boolean | undefined
+> =
+  // ValueNode and FreeSoloNode
+  Pick<
+    AutocompleteProps<
+      ValueNode<T, TBranch> | FreeSoloValueMapping<FreeSolo, TBranch>,
+      Multiple,
+      DisableClearable,
+      false
+    >,
+    "value" | "onChange" | "renderTags"
+  > &
+    // ValueNode
+    Pick<
+      AutocompleteProps<
+        ValueNode<T, TBranch> | FreeSoloValueMapping<FreeSolo, TBranch>,
+        Multiple,
+        DisableClearable,
+        false
+      >,
+      "getOptionSelected" | "defaultValue"
+    > &
+    // ValueNode, BranchNode and FreeSoloNode
+    Pick<
+      AutocompleteProps<
+        | ValueNode<T, TBranch>
+        | BranchNode<TBranch>
+        | FreeSoloValueMapping<FreeSolo, TBranch>,
+        Multiple,
+        DisableClearable,
+        false
+      >,
+      "getOptionLabel"
+    > &
+    // ValueNode and BranchNode
+    Pick<
+      AutocompleteProps<
+        ValueNode<T, TBranch> | BranchNode<TBranch>,
+        Multiple,
+        DisableClearable,
+        false
+      >,
+      | "filterOptions"
+      | "onHighlightChange"
+      | "renderOption"
+      | "getOptionDisabled"
+      | "groupBy"
+    > &
+    // T, BranchNode
+    Pick<
+      AutocompleteProps<
+        T | BranchNode<TBranch>,
+        Multiple,
+        DisableClearable,
+        false
+      >,
+      "options"
+    > &
+    // Rest AutocompleteProps and Omits
+    Omit<
+      AutocompleteProps<unknown, Multiple, DisableClearable, false>,
+      // Omit above Pick's
+      | "defaultValue"
+      | "filterOptions"
+      | "getOptionDisabled"
+      | "getOptionLabel"
+      | "getOptionSelected"
+      | "groupBy"
+      | "options"
+      | "onChange"
+      | "onHighlightChange"
+      | "renderOption"
+      | "renderTags"
+      | "value"
+
+      // Omits
+      | "freeSolo"
+      | "renderInput"
+    > & {
+      branch?: BranchNode<TBranch> | null;
+      enterBranchText?: string;
+      exitBranchText?: string;
+      freeSolo?: FreeSolo;
+      onBranchChange: (
+        event: React.ChangeEvent<Record<string, unknown>>,
+        branch: BranchNode<TBranch> | null,
+        direction: PathDirection,
+        reason: BranchSelectReason
+      ) => void | Promise<void>;
+      renderInput?: (
+        params: AutocompleteRenderInputParams | TextFieldProps
+      ) => JSX.Element;
+    };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const defaultGetOptionLabel = (option: any): string => String(option);
 
 const BranchPathIcon = forwardRef<SVGSVGElement, SvgIconProps>(
   (props: SvgIconProps, ref) => (
@@ -145,19 +342,10 @@ const BranchPathIcon = forwardRef<SVGSVGElement, SvgIconProps>(
   )
 );
 
-const branchPathToStr = function <TBranchOption>(
-  branchPath: BranchOption<TBranchOption>[],
-  getOptionLabel: (option: BranchOption<TBranchOption>) => string
-): string {
-  return branchPath.reduce((pathStr, branch) => {
-    return `${pathStr}${pathStr ? " > " : ""}${getOptionLabel(branch)}`;
-  }, "");
-};
-
 export const mergeInputStartAdornment = (
   action: "append" | "prepend",
-  adornment: React.ReactNode,
-  inputProps: InputProps
+  adornment: ReactNode,
+  inputProps: InputProps = {}
 ): InputProps => ({
   ...inputProps,
   startAdornment: (() => {
@@ -182,7 +370,7 @@ export const mergeInputStartAdornment = (
 export const mergeInputEndAdornment = (
   action: "append" | "prepend",
   adornment: React.ReactNode,
-  inputProps: InputProps
+  inputProps: InputProps = {}
 ): InputProps => ({
   ...inputProps,
   endAdornment: (() => {
@@ -204,6 +392,128 @@ export const mergeInputEndAdornment = (
   })(),
 });
 
+export const useTreeSelectStyles = makeStyles({
+  listBox: {
+    "& > .MuiAutocomplete-option": {
+      margin: "0px !important",
+      padding: "0px !important",
+    },
+  },
+});
+
+const useDefaultOptionStyles = makeStyles({
+  optionItemContainer: {
+    width: "100%",
+  },
+  upBranchIcon: {
+    marginLeft: "-8px",
+    marginRight: "24px",
+  },
+  downBranchIcon: {
+    marginLeft: "16px",
+  },
+  optionItem: {
+    width: "100%",
+  },
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const defaultFilterOptions = createFilterOptions<any>();
+
+export const DefaultOption = <T, TBranch>(props: {
+  option: ValueNode<T, TBranch> | BranchNode<TBranch>;
+  curBranch: BranchNode<TBranch> | null;
+  exitBranchText?: string;
+  enterBranchText?: string;
+  getOptionLabel: (
+    option: ValueNode<T, TBranch> | BranchNode<TBranch>
+  ) => string;
+  renderOption?: (
+    option: ValueNode<T, TBranch> | BranchNode<TBranch>
+  ) => ReactNode;
+}): JSX.Element => {
+  const classes = useDefaultOptionStyles();
+
+  const {
+    option,
+    curBranch,
+    exitBranchText = "Exit",
+    enterBranchText = "Enter",
+    getOptionLabel,
+  } = props;
+
+  const renderOption = props.renderOption || getOptionLabel;
+
+  const isBranch = option instanceof BranchNode;
+  const isUpBranch = isBranch && curBranch === option;
+
+  const optionNode = renderOption(option);
+  const optionNodeIsStr = typeof optionNode === "string";
+
+  const optionDiv = (
+    <div className={`MuiAutocomplete-option ${classes.optionItemContainer}`}>
+      {isUpBranch ? (
+        <Fragment>
+          <Tooltip title={exitBranchText}>
+            <ChevronLeftIcon className={classes.upBranchIcon} />
+          </Tooltip>
+          <Tooltip
+            title={BranchNode.pathToString(option as BranchNode<TBranch>, {
+              branchToSting: getOptionLabel,
+            })}
+          >
+            {optionNodeIsStr ? (
+              <Typography
+                component="div"
+                variant="inherit"
+                color="inherit"
+                align="left"
+                noWrap
+              >
+                {optionNode as string}
+              </Typography>
+            ) : (
+              <div>{optionNode}</div>
+            )}
+          </Tooltip>
+        </Fragment>
+      ) : (
+        <Fragment>
+          {optionNodeIsStr ? (
+            <Typography
+              className={classes.optionItem}
+              component="div"
+              variant="inherit"
+              color="inherit"
+              align="left"
+              noWrap
+            >
+              {optionNode as string}
+            </Typography>
+          ) : (
+            <div className={classes.optionItem}>{optionNode}</div>
+          )}
+
+          {isBranch && (
+            <Tooltip title={enterBranchText}>
+              <ChevronRightIcon className={classes.downBranchIcon} />
+            </Tooltip>
+          )}
+        </Fragment>
+      )}
+    </div>
+  );
+
+  return isUpBranch ? (
+    <div className={classes.optionItemContainer}>
+      {optionDiv}
+      <Divider />
+    </div>
+  ) : (
+    optionDiv
+  );
+};
+
 /**
  * Renders a TextField
  */
@@ -211,822 +521,258 @@ export const defaultInput = (
   params: TextFieldProps | AutocompleteRenderInputParams
 ): JSX.Element => <TextField {...params} />;
 
-export type BranchSelectReason =
-  | Extract<AutocompleteChangeReason, "select-option">
-  | Extract<AutocompleteCloseReason, "escape">;
-
-export type BranchSelectDirection = "up" | "down";
-
-export type FreeSoloValueMapping<
-  FreeSolo extends boolean | undefined,
-  TBranchOption
-> = FreeSolo extends true ? FreeSoloValue<TBranchOption> : never;
-
-export type TreeSelectProps<
-  T,
-  TBranchOption,
-  Multiple extends boolean | undefined,
-  DisableClearable extends boolean | undefined,
-  FreeSolo extends boolean | undefined
-> =
-  //T and Option
-  Pick<
-    AutocompleteProps<
-      | T
-      | Option<T, TBranchOption>
-      | FreeSoloValueMapping<FreeSolo, TBranchOption>,
-      Multiple,
-      DisableClearable,
-      false
-    >,
-    "defaultValue"
-  > &
-    // Option and FreeSoloValue
-    Pick<
-      AutocompleteProps<
-        | Option<T, TBranchOption>
-        | FreeSoloValueMapping<FreeSolo, TBranchOption>,
-        Multiple,
-        DisableClearable,
-        false
-      >,
-      "onChange" | "renderTags"
-    > &
-    // T, Option and FreeSoloValue
-    Pick<
-      AutocompleteProps<
-        | T
-        | Option<T, TBranchOption>
-        | FreeSoloValueMapping<FreeSolo, TBranchOption>,
-        Multiple,
-        DisableClearable,
-        false
-      >,
-      "value"
-    > &
-    // Option and BranchOptions
-    Pick<
-      AutocompleteProps<
-        Option<T, TBranchOption> | BranchOption<TBranchOption>,
-        Multiple,
-        DisableClearable,
-        false
-      >,
-      "onHighlightChange"
-    > &
-    // T, BranchOptions
-    Pick<
-      AutocompleteProps<
-        T | BranchOption<TBranchOption>,
-        Multiple,
-        DisableClearable,
-        false
-      >,
-      "options"
-    > &
-    // Option, FreeSoloValue, and BranchOptions
-    /* Pick<
-    AutocompleteProps<
-      | Option<T, TBranchOption>
-      | FreeSoloValueMapping<FreeSolo, TBranchOption>
-      | BranchOption<TBranchOption>,
-      Multiple,
-      DisableClearable,
-      false
-    >,
-    "getOptionLabel"
-  >  & */
-    // Rest AutocompleteProps and Omits
-    Omit<
-      AutocompleteProps<unknown, Multiple, DisableClearable, false>,
-      // Omit above Pick's
-      | "defaultValue"
-      | "filterOptions"
-      | "options"
-      | "onChange"
-      | "onHighlightChange"
-      | "renderTags"
-      | "value"
-
-      // Omits
-      | "filterOptions"
-      | "freeSolo"
-      | "getOptionDisabled"
-      | "getOptionLabel"
-      | "getOptionSelected"
-      | "groupBy"
-      | "loadingText"
-      | "noOptionsText"
-      | "renderInput"
-      | "renderOption"
-      | "placeholder"
-    > & {
-      branchPath?: BranchOption<TBranchOption>[];
-      enterBranchText?: string;
-      exitBranchText?: string;
-      /**
-       * @returns `true` to keep option and `false` to filter.
-       */
-      filterOptions?: (
-        option: Option<T, TBranchOption> | BranchOption<TBranchOption>,
-        state: FilterOptionsState<
-          Option<T, TBranchOption> | BranchOption<TBranchOption>
-        >
-      ) => boolean;
-      freeSolo?: FreeSolo;
-      getOptionLabel?: (
-        option:
-          | T
-          | BranchOption<TBranchOption>
-          | FreeSoloValueMapping<FreeSolo, TBranchOption>,
-        branchPath?: BranchOption<TBranchOption>[]
-      ) => string;
-      getOptionDisabled?: (
-        option: T | BranchOption<TBranchOption>,
-        branchPath?: BranchOption<TBranchOption>[]
-      ) => boolean;
-      getOptionSelected?: (
-        option: T,
-        value: T,
-        branchPath?: {
-          option: BranchOption<TBranchOption>[];
-          value: BranchOption<TBranchOption>[];
-        }
-      ) => boolean;
-      groupBy?: (
-        option: T | BranchOption<TBranchOption>,
-        branchPath?: BranchOption<TBranchOption>[]
-      ) => string;
-      loadingText?: string;
-      noOptionsText?: string;
-      onBranchChange: (
-        event: React.ChangeEvent<Record<string, unknown>>,
-        branchOption: BranchOption<TBranchOption> | undefined,
-        branchPath: BranchOption<TBranchOption>[],
-        direction: BranchSelectDirection,
-        reason: BranchSelectReason
-      ) => void | Promise<void>;
-      renderInput?: (
-        params: AutocompleteRenderInputParams | TextFieldProps
-      ) => JSX.Element;
-      renderOption?: (
-        option: Option<T, TBranchOption> | BranchOption<TBranchOption>,
-        state: AutocompleteRenderOptionState & {
-          getOptionLabel: (
-            option: Option<T, TBranchOption> | BranchOption<TBranchOption>
-          ) => string;
-        }
-      ) => ReactNode;
-      /**
-       * Goes up one branch on escape key press; unless at root, then default
-       * MUI Autocomplete behavior.
-       * */
-      upBranchOnEsc?: boolean;
-    };
-
 const TreeSelect = <
   T,
-  TBranchOption,
+  TBranch,
   Multiple extends boolean | undefined,
   DisableClearable extends boolean | undefined,
   FreeSolo extends boolean | undefined
 >(
-  props: TreeSelectProps<
+  props: TreeSelectProps<T, TBranch, Multiple, DisableClearable, FreeSolo>,
+
+  ref: React.ForwardedRef<unknown>
+) => {
+  type Props = TreeSelectProps<
     T,
-    TBranchOption,
+    TBranch,
     Multiple,
     DisableClearable,
     FreeSolo
-  >,
-  ref: React.ForwardedRef<unknown>
-): JSX.Element => {
-  type TOption =
-    | BranchOption<TBranchOption>
-    | Option<T, TBranchOption>
-    | typeof LOADING_OPTION;
-
-  type TValue = Value<
-    Option<T, TBranchOption> | FreeSoloValueMapping<FreeSolo, TBranchOption>,
-    Multiple,
-    DisableClearable,
-    false
   >;
 
-  interface TreeSelectState {
-    branchPath: BranchOption<TBranchOption>[];
-    inputValue: string;
-    open: boolean;
-    value: TValue;
-  }
-
-  const classes = useStyles();
+  const classes = useTreeSelectStyles();
 
   const {
-    autoSelect,
-    branchPath: branchPathProp,
-    debug,
-    defaultValue,
-    disableClearable,
-    disableCloseOnSelect,
-    enterBranchText = "Enter",
-    exitBranchText = "Exit",
-    filterOptions: filterOptionsProp,
-    freeSolo,
-    getOptionDisabled: getOptionDisabledProp,
-    getOptionLabel: getOptionLabelProp,
-    groupBy: groupByProp,
+    defaultValue = (props.multiple ? [] : null) as typeof valueProp,
     inputValue: inputValueProp,
-    onInputChange: onInputChangeProp,
+    value: valueProp,
+    branch: branchProp,
+    onChange,
+    onInputChange,
     onBranchChange,
-    getOptionSelected: getOptionSelectedProp,
-    ListboxProps: ListboxPropsProp,
-    loading,
-    loadingText = DEFAULT_LOADING_TEXT,
-    multiple,
-    onBlur: onBlurProp,
-    onClose: onCloseProp,
-    onChange: onChangeProp,
-    onOpen: onOpenProp,
-    open,
     options: optionsProp,
-    /**
-     * Renders a TextField
-     */
-    renderInput: renderInputProp = defaultInput,
     renderOption: renderOptionProp,
+    ListboxProps: ListboxPropsProp,
+    getOptionLabel = defaultGetOptionLabel,
+    renderInput: renderInputProp = defaultInput,
+    enterBranchText,
+    exitBranchText,
+    onClose,
+    onOpen,
+    open: openProp,
+    filterOptions: filterOptionsProp = defaultFilterOptions,
+    PaperComponent: PaperComponentProp = Paper,
+    loadingText = "Loading…",
+    noOptionsText = "No options",
     renderTags: renderTagsProp,
-    value: valuePropRaw,
-    upBranchOnEsc,
+    onBlur: onBlurProp,
     ...rest
   } = props;
 
-  const valueProp = useMemo(
-    () =>
-      !valuePropRaw ||
-      valuePropRaw instanceof Option ||
-      valuePropRaw instanceof FreeSoloValue
-        ? valuePropRaw
-        : new Option(valuePropRaw),
+  const [value, setValue] = useControlled({
+    controlled: valueProp,
+    default: defaultValue,
+    name: "TreeSelect",
+    state: "value",
+  });
 
-    [valuePropRaw]
+  const [inputValue, setInputValue] = useControlled({
+    controlled: inputValueProp,
+    default: "",
+    name: "TreeSelect",
+    state: "inputValue",
+  });
+
+  const [branch, setBranch] = useControlled({
+    controlled: branchProp,
+    default: null,
+    name: "TreeSelect",
+    state: "branch",
+  });
+
+  const [open, setOpen] = useControlled({
+    controlled: openProp,
+    default: false,
+    name: "TreeSelect",
+    state: "open",
+  });
+
+  const inputValueOnBranchSelect = useRef<"clear" | "abort" | "continue">(
+    "continue"
   );
 
-  const isBranchPathControlled = branchPathProp !== undefined;
-  const isInputControlled = inputValueProp !== undefined;
-  const isValueControlled = valueProp !== undefined;
-
-  const autoCompleteProps = rest as Omit<
-    AutocompleteProps<unknown, Multiple, DisableClearable, FreeSolo>,
-    "defaultValue"
-  >;
-
-  const [state, setState] = useState<TreeSelectState>(() => ({
-    branchPath: [],
-    inputValue: (() => {
-      if (!multiple && !isInputControlled) {
-        if ((valueProp ?? NULLISH) !== NULLISH) {
-          const value = valueProp as NonNullable<
-            TreeSelectProps<T, TBranchOption, false, true, false>["value"]
-          >;
-
-          if (getOptionLabelProp) {
-            if (value instanceof Option) {
-              return getOptionLabelProp(value.valueOf(), value.branchPath);
-            } else if (value instanceof FreeSoloValue) {
-              return getOptionLabelProp(value, value.branchPath);
-            } else {
-              return getOptionLabelProp(value);
-            }
-          } else {
-            return convertToString(value);
-          }
-        } else if ((defaultValue ?? NULLISH) !== NULLISH) {
-          const value = valueProp as NonNullable<
-            TreeSelectProps<
-              T,
-              TBranchOption,
-              false,
-              true,
-              false
-            >["defaultValue"]
-          >;
-
-          if (getOptionLabelProp) {
-            if (value instanceof Option) {
-              return getOptionLabelProp(value.valueOf(), value.branchPath);
-            } else if (value instanceof FreeSoloValue) {
-              return getOptionLabelProp(value, value.branchPath);
-            } else {
-              return getOptionLabelProp(value);
-            }
-          } else {
-            return convertToString(value);
-          }
-        }
-      }
-      return "";
-    })(),
-    open: false,
-    value: (() => {
-      if (isValueControlled || defaultValue === undefined) {
-        return multiple ? [] : null;
-      } else if (multiple) {
-        return (defaultValue as (
-          | T
-          | Option<T, TBranchOption>
-        )[]).map((defaultValue) =>
-          defaultValue instanceof Option
-            ? defaultValue
-            : new Option<T, TBranchOption>(defaultValue as T)
-        );
-      } else if (defaultValue === null) {
-        return null;
-      } else {
-        return defaultValue instanceof Option
-          ? defaultValue
-          : new Option<T, TBranchOption>(defaultValue as T);
-      }
-    })() as TValue,
-  }));
-
-  const branchPath = (isBranchPathControlled
-    ? branchPathProp
-    : state.branchPath) as BranchOption<TBranchOption>[];
-
-  const inputValue = (isInputControlled
-    ? inputValueProp
-    : state.inputValue) as string;
-
-  const value = isValueControlled ? valueProp : state.value;
-
-  const getOptionDisabled = useCallback<(option: TOption) => boolean>(
-    (option: TOption) => {
-      if (option === LOADING_OPTION) {
-        return true;
-      } else if (
-        option instanceof BranchOption &&
-        branchPath.includes(option)
-      ) {
-        return false;
-      } else if (loading) {
-        return true;
-      } else if (getOptionDisabledProp) {
-        if (option instanceof Option) {
-          return getOptionDisabledProp(option.valueOf(), option.branchPath);
-        } else if (option instanceof FreeSoloValue) {
-          return getOptionDisabledProp(option, option.branchPath);
-        } else {
-          return getOptionDisabledProp(option, branchPath);
-        }
-      } else {
-        return false;
-      }
-    },
-    [getOptionDisabledProp, loading, branchPath]
-  );
-
-  const getOptionLabel = useCallback<
-    (option: TOption | FreeSoloValueMapping<FreeSolo, TBranchOption>) => string
+  const handleChange = useCallback<
+    NonNullable<
+      AutocompleteProps<
+        ValueNode<T, TBranch> | BranchNode<TBranch>,
+        Multiple,
+        DisableClearable,
+        FreeSolo
+      >["onChange"]
+    >
   >(
-    (
-      option: TOption | FreeSoloValueMapping<FreeSolo, TBranchOption>
-    ): string => {
-      if (option === LOADING_OPTION) {
-        return loadingText;
-      } else if (getOptionLabelProp) {
-        if (option instanceof Option) {
-          return getOptionLabelProp(option.valueOf(), option.branchPath);
-        } else if (option instanceof FreeSoloValue) {
-          return getOptionLabelProp(option, option.branchPath);
+    (event, valueRaw, reason, ...rest) => {
+      const newValue = (props.multiple
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (valueRaw as any[])[(valueRaw as any[]).length - 1]
+        : valueRaw) as BranchNode<TBranch> | ValueNode<T, TBranch> | string;
+
+      if (newValue instanceof BranchNode) {
+        if (!props.multiple && value) {
+          inputValueOnBranchSelect.current = "abort";
         } else {
-          return getOptionLabelProp(option, branchPath);
+          inputValueOnBranchSelect.current = "clear";
+        }
+
+        const [newBranch, direction]: [
+          BranchNode<TBranch> | null,
+          PathDirection
+        ] = newValue === branch ? [newValue.parent, "up"] : [newValue, "down"];
+
+        setBranch(newBranch);
+
+        if (onBranchChange) {
+          onBranchChange(event, newBranch, direction, "select-option");
         }
       } else {
-        return convertToString(option);
-      }
-    },
-    [getOptionLabelProp, loadingText, branchPath]
-  );
+        // If value is freeSolo convert to FreeSoloNode
+        const newValueParsed =
+          reason === "create-option" && (newValue as string).trim()
+            ? new FreeSoloNode(newValue as string, branch)
+            : (newValue as ValueNode<T, TBranch> | FreeSoloNode<TBranch>);
 
-  const getOptionSelected = useCallback<
-    (
-      option: TOption,
-      value: Option<T, TBranchOption> | FreeSoloValue
-    ) => boolean
-  >(
-    (option: TOption, value: Option<T, TBranchOption> | FreeSoloValue) => {
-      // An Value is NEVER a FreeSoloValue (sanity); BranchOption and
-      // LOADING_OPTION are NEVER selectable.
-      if (
-        value instanceof FreeSoloValue ||
-        option instanceof BranchOption ||
-        option === LOADING_OPTION
-      ) {
-        return false;
-      } else if (getOptionSelectedProp) {
-        return getOptionSelectedProp(option.valueOf(), value.valueOf(), {
-          option: option.branchPath,
-          value: value.branchPath,
-        });
-      } else {
-        return option.valueOf() === value.valueOf();
-      }
-    },
-    [getOptionSelectedProp]
-  );
+        const value = props.multiple
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (valueRaw as any[]).length
+            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              [...(valueRaw as any[]).slice(0, -1), newValueParsed]
+            : valueRaw
+          : newValueParsed;
 
-  const groupBy = useMemo<((option: TOption) => string) | undefined>(() => {
-    if (!groupByProp) {
-      return undefined;
-    }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setValue(value as any);
 
-    return (option) => {
-      if (option === LOADING_OPTION) {
-        return "";
-      } else if (option instanceof Option) {
-        return groupByProp(option.valueOf(), option.branchPath);
-      } else {
-        return groupByProp(option, branchPath);
-      }
-    };
-  }, [groupByProp, branchPath]);
-
-  const filterOptions = useMemo<
-    (
-      options: TOption[],
-      filterOptionsState: FilterOptionsState<
-        Option<T> | BranchOption<TBranchOption>
-      >
-    ) => TOption[]
-  >(() => {
-    const filterOptions = filterOptionsProp
-      ? (
-          options: (Option<T, TBranchOption> | BranchOption<TBranchOption>)[],
-          state: FilterOptionsState<
-            Option<T, TBranchOption> | BranchOption<TBranchOption>
-          >
-        ) => {
-          const newState = {
-            ...state,
-            getOptionLabel: (
-              option: Option<T, TBranchOption> | BranchOption<TBranchOption>
-            ) => state.getOptionLabel(option),
-          };
-
-          return options.filter((option) =>
-            filterOptionsProp(option, newState)
-          );
+        if (onChange) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          onChange(event, value as any, reason, ...(rest as any[]));
         }
-      : createFilterOptions<
-          Option<T, TBranchOption> | BranchOption<TBranchOption>
-        >({
-          stringify: getOptionLabel,
-        });
 
-    // Parent BranchOption and LOADING_OPTION are NEVER filtered
-    return (
-      options: TOption[],
-      filterOptionsState: FilterOptionsState<
-        Option<T, TBranchOption> | BranchOption<TBranchOption>
-      >
-    ) => {
-      const [staticOpts, filteredOpts] = options.reduce(
-        (opts, opt) => {
-          const [staticOpts, filteredOpts] = opts;
+        if (reason === "select-option" && !props.disableCloseOnSelect) {
+          setOpen(false);
 
-          // LOADING_OPTION is NEVER filtered
-          if (opt === LOADING_OPTION) {
-            staticOpts.push(opt);
-          } else if (opt instanceof BranchOption) {
-            // Parent BranchOption are NEVER filtered
-            if (branchPath.includes(opt)) {
-              staticOpts.push(opt);
-            } else {
-              filteredOpts.push(opt);
-            }
-          } else {
-            filteredOpts.push(opt);
+          if (onClose) {
+            onClose(event, "select-option");
           }
-
-          return opts;
-        },
-        [[], []] as [
-          (BranchOption<TBranchOption> | typeof LOADING_OPTION)[],
-          (Option<T, TBranchOption> | BranchOption<TBranchOption>)[]
-        ]
-      );
-
-      return [
-        ...staticOpts,
-        ...filterOptions(filteredOpts, filterOptionsState),
-      ];
-    };
-  }, [filterOptionsProp, getOptionLabel, branchPath]);
-
-  const resetInput = useCallback(
-    (
-      event: Parameters<
-        NonNullable<
-          AutocompleteProps<
-            unknown,
-            Multiple,
-            DisableClearable,
-            FreeSolo
-          >["onInputChange"]
-        >
-      >[0],
-      inputValue: string
-    ) => {
-      if (!isInputControlled) {
-        setState((state) => ({
-          ...state,
-          inputValue,
-        }));
+        }
       }
-
-      if (onInputChangeProp) {
-        onInputChangeProp(event, inputValue, "reset");
-      }
-    },
-    [isInputControlled, onInputChangeProp, setState]
-  );
-
-  const upOneBranch = useCallback(
-    (event: Parameters<typeof resetInput>[0], reason: BranchSelectReason) => {
-      if (multiple || (value ?? NULLISH) === NULLISH) {
-        resetInput(event, "");
-      }
-
-      const newBranchPath = branchPath.slice(0, branchPath.length - 1);
-
-      if (!isBranchPathControlled) {
-        setState((state) => ({
-          ...state,
-          branchPath: newBranchPath,
-        }));
-      }
-
-      onBranchChange(
-        event,
-        lastElm(newBranchPath),
-        [...newBranchPath],
-        "up",
-        reason
-      );
     },
     [
-      isBranchPathControlled,
-      setState,
-      branchPath,
-      multiple,
+      props.multiple,
+      props.disableCloseOnSelect,
+      branch,
+      setBranch,
       onBranchChange,
-      resetInput,
+      setValue,
+      onChange,
+      setOpen,
+      onClose,
       value,
     ]
   );
 
-  const onClose = useCallback<
-    NonNullable<
-      AutocompleteProps<
-        unknown,
-        Multiple,
-        DisableClearable,
-        FreeSolo
-      >["onClose"]
-    >
-  >(
-    (...args) => {
-      const [event, reason] = args;
+  const handleInputChange = useCallback<NonNullable<Props["onInputChange"]>>(
+    (event, inputValue, reason) =>
+      setTimeout(() => {
+        if (inputValueOnBranchSelect.current === "abort") {
+          inputValueOnBranchSelect.current = "continue";
+        } else if (inputValueOnBranchSelect.current === "clear") {
+          inputValueOnBranchSelect.current = "continue";
 
-      //onClose should NOT be called by a BranchOption
-      // selection. onChange MUST handle,
+          setInputValue("");
+
+          if (onInputChange) {
+            onInputChange(event, "", reason);
+          }
+        } else {
+          setInputValue(inputValue);
+
+          if (onInputChange) {
+            onInputChange(event, inputValue, reason);
+          }
+        }
+      }, 0),
+    [onInputChange, setInputValue]
+  );
+
+  const handleClose = useCallback<NonNullable<Props["onClose"]>>(
+    (event, reason) => {
       if (reason === "select-option") {
         return;
-      } else if (
-        reason === "escape" &&
-        branchPath.length > 0 &&
-        upBranchOnEsc
-      ) {
-        // Escape goes up One Branch level
-        upOneBranch(event, "escape");
-      } else if (onCloseProp) {
-        return onCloseProp(...args);
-      } else {
-        switch (reason) {
-          case "escape":
-            setState((state) => ({
-              ...state,
-              open: false,
-            }));
-            break;
-          case "blur":
-            if (debug) {
-              return;
-            }
-            setState((state) => ({
-              ...state,
-              open: false,
-            }));
-            break;
-
-          case "toggleInput":
-            setState((state) => ({
-              ...state,
-              open: false,
-            }));
-            break;
-        }
+      }
+      setOpen(false);
+      if (onClose) {
+        onClose(event, reason);
       }
     },
-    [onCloseProp, branchPath.length, upBranchOnEsc, debug, upOneBranch]
+    [onClose, setOpen]
   );
 
-  const onOpen = useMemo<
-    NonNullable<
-      AutocompleteProps<unknown, Multiple, DisableClearable, FreeSolo>["onOpen"]
-    >
-  >(() => {
-    if (onOpenProp) {
-      return onOpenProp;
-    } else {
-      return () => {
-        setState((state) => ({
-          ...state,
-          open: true,
-        }));
-      };
-    }
-  }, [setState, onOpenProp]);
-
-  const renderInput = useCallback<NonNullable<typeof props.renderInput>>(
-    (params) => {
-      if (
-        multiple ||
-        !value ||
-        !(value instanceof Option || value instanceof FreeSoloValue) ||
-        !value.branchPath.length ||
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        getOptionLabel(value as any) !== (params?.inputProps as any)?.value
-      ) {
-        return renderInputProp(params);
-      } else {
-        return renderInputProp({
-          ...params,
-          InputProps: mergeInputStartAdornment(
-            "prepend",
-            <Tooltip
-              title={branchPathToStr<TBranchOption>(
-                (value as
-                  | Option<T, TBranchOption>
-                  | FreeSoloValueMapping<FreeSolo, TBranchOption>).branchPath,
-                getOptionLabel
-              )}
-            >
-              <BranchPathIcon fontSize="small" />
-            </Tooltip>,
-            params.InputProps || {}
-          ),
-        });
+  const handleOpen = useCallback<NonNullable<Props["onOpen"]>>(
+    (...args) => {
+      setOpen(true);
+      if (onOpen) {
+        onOpen(...args);
       }
     },
-    [renderInputProp, multiple, value, getOptionLabel]
+    [onOpen, setOpen]
   );
 
-  const renderOption = useCallback<
-    NonNullable<
-      AutocompleteProps<
-        TOption,
-        Multiple,
-        DisableClearable,
-        FreeSolo
-      >["renderOption"]
-    >
-  >(
-    (option, state) => {
-      if (option === LOADING_OPTION) {
-        return (
-          <div className="MuiAutocomplete-loading">
-            {getOptionLabel(LOADING_OPTION)}
-          </div>
+  const options = useMemo(
+    () =>
+      (props.loading ? [] : optionsProp).reduce((options, option) => {
+        options.push(
+          option instanceof BranchNode ? option : new ValueNode(option, branch)
         );
-      } else if (
-        option instanceof BranchOption &&
-        branchPath.includes(option)
-      ) {
-        return (
-          <ListItem className={classes.optionNode} component="div" divider>
-            <ListItemIcon>
-              <Tooltip title={exitBranchText}>
-                <ChevronLeftIcon />
-              </Tooltip>
-            </ListItemIcon>
-            {branchPath.length > 1 ? (
-              <Tooltip
-                title={branchPathToStr<TBranchOption>(
-                  branchPath,
-                  getOptionLabel
-                )}
-              >
-                <ListItemText
-                  primaryTypographyProps={primaryTypographyProps}
-                  primary={getOptionLabel(option)}
-                />
-              </Tooltip>
-            ) : (
-              <ListItemText
-                primaryTypographyProps={primaryTypographyProps}
-                primary={getOptionLabel(option)}
-              />
-            )}
-          </ListItem>
-        );
-      } else if (loading) {
-        return (
-          <Box width="100%">
-            <Skeleton animation="wave" />
-          </Box>
-        );
-      } else if (option instanceof BranchOption) {
-        const renderOptionResult =
-          renderOptionProp?.call(null, option, {
-            ...state,
-            getOptionLabel,
-          }) || getOptionLabel(option);
-        return (
-          <Box width="100%" display="flex">
-            <Box flexGrow="1" clone>
-              {typeof renderOptionResult === "string" ? (
-                <Typography
-                  variant="inherit"
-                  color="inherit"
-                  align="left"
-                  noWrap
-                >
-                  {renderOptionResult}
-                </Typography>
-              ) : (
-                renderOptionResult
-              )}
-            </Box>
-            <Tooltip title={enterBranchText}>
-              <ChevronRightIcon />
-            </Tooltip>
-          </Box>
-        );
-      } else {
-        const renderOptionResult =
-          renderOptionProp?.call(null, option, {
-            ...state,
-            getOptionLabel,
-          }) || getOptionLabel(option);
+        return options;
+      }, (branch ? [branch] : []) as (BranchNode<TBranch> | ValueNode<T, TBranch>)[]),
+    [props.loading, optionsProp, branch]
+  );
 
-        return typeof renderOptionResult === "string" ? (
-          <Typography variant="inherit" color="inherit" align="left" noWrap>
-            {renderOptionResult}
-          </Typography>
-        ) : (
-          renderOptionResult
+  const renderOption = useCallback<NonNullable<Props["renderOption"]>>(
+    (option, ...rest) => {
+      if (renderOptionProp) {
+        return renderOptionProp(option, ...rest);
+      } else {
+        return (
+          <DefaultOption
+            option={option}
+            curBranch={branch}
+            exitBranchText={exitBranchText}
+            enterBranchText={enterBranchText}
+            getOptionLabel={getOptionLabel}
+          />
         );
       }
     },
-    [
-      renderOptionProp,
-      getOptionLabel,
-      classes.optionNode,
-      branchPath,
-      loading,
-      enterBranchText,
-      exitBranchText,
-    ]
+    [renderOptionProp, branch, exitBranchText, getOptionLabel, enterBranchText]
   );
 
-  const renderTags = useCallback<
-    NonNullable<
-      AutocompleteProps<
-        | Option<T, TBranchOption>
-        | FreeSoloValueMapping<FreeSolo, TBranchOption>,
-        Multiple,
-        DisableClearable,
-        FreeSolo
-      >["renderTags"]
-    >
-  >(
+  const renderTags = useCallback<NonNullable<Props["renderTags"]>>(
     (value, getTagProps) => {
       if (renderTagsProp) {
         return renderTagsProp(value, getTagProps);
       } else {
         return value.map((option, index) => {
-          if (option.branchPath.length) {
+          if (option.parent) {
             const { key, ...chipProps } = getTagProps({ index }) as {
               key: React.Key;
             } & ChipProps;
             return (
               <Tooltip
                 key={key}
-                title={branchPathToStr<TBranchOption>(
-                  option.branchPath,
-                  getOptionLabel
-                )}
+                title={BranchNode.pathToString(option.parent, {
+                  branchToSting: getOptionLabel,
+                })}
               >
                 <Chip label={getOptionLabel(option)} {...chipProps} />
               </Tooltip>
@@ -1046,189 +792,55 @@ const TreeSelect = <
     [renderTagsProp, getOptionLabel]
   );
 
-  const onInputChange = useCallback<
-    NonNullable<
-      AutocompleteProps<
-        unknown,
-        Multiple,
-        DisableClearable,
-        FreeSolo
-      >["onInputChange"]
-    >
-  >(
-    (...args) => {
-      const [, inputValue, reason] = args;
-
-      // Resets are handled by resetInput
-      if (reason === "reset") {
-        return;
-      }
-
-      if (!isInputControlled) {
-        setState((state) => ({
-          ...state,
-          inputValue,
-        }));
-      }
-
-      if (onInputChangeProp) {
-        onInputChangeProp(...args);
-      }
-    },
-    [isInputControlled, onInputChangeProp, setState]
-  );
-
-  type OnChangeParams = Parameters<
-    NonNullable<
-      AutocompleteProps<
-        unknown,
-        Multiple,
-        DisableClearable,
-        FreeSolo
-      >["onChange"]
-    >
-  >;
-
-  const onChange = useCallback<
-    (
-      event: OnChangeParams[0],
-      value: unknown,
-      reason: OnChangeParams[2],
-      details: OnChangeParams[3]
-    ) => void
-  >(
-    (...args) => {
-      const [event, , reason] = args;
-
-      const curValue = value;
-
-      switch (reason) {
-        case "select-option":
-        case "blur":
-        case "create-option":
-          {
-            const value = (multiple
-              ? lastElm(args[1] as unknown[])
-              : args[1]) as TOption | string;
-
-            if (value === LOADING_OPTION) {
-              return;
-            } else if (value instanceof BranchOption) {
-              if (reason === "blur") {
-                // Do NOT follow branches on blur
-                return;
-              } else if (branchPath.includes(value)) {
-                upOneBranch(event, "select-option");
-              } else {
-                // Following branch reset input
-                if (multiple || (curValue ?? NULLISH) === NULLISH) {
-                  resetInput(event, "");
-                }
-
-                const newBranchPath = [...branchPath, value];
-
-                if (!isBranchPathControlled) {
-                  setState((state) => ({
-                    ...state,
-                    branchPath: newBranchPath,
-                  }));
-                }
-
-                onBranchChange(
-                  event,
-                  value,
-                  [...newBranchPath],
-                  "down",
-                  "select-option"
-                );
-              }
-            } else {
-              const parsedValue =
-                value instanceof Option
-                  ? new Option(value.valueOf(), branchPath)
-                  : new FreeSoloValue(value, branchPath);
-
-              const newValue = (multiple
-                ? [...(args[1] as unknown[]).slice(0, -1), parsedValue]
-                : parsedValue) as Exclude<TValue, undefined>;
-
-              // Reset input on new value
-              if (multiple) {
-                resetInput(event, "");
-              } else {
-                resetInput(
-                  event,
-                  getOptionLabel(
-                    parsedValue as
-                      | TOption
-                      | FreeSoloValueMapping<FreeSolo, TBranchOption>
-                  )
-                );
-              }
-
-              // NOT controlled, set value to local state.
-              if (isValueControlled) {
-                setState((state) => ({
-                  ...state,
-                  open: !!disableCloseOnSelect,
-                }));
-              } else {
-                setState((state) => ({
-                  ...state,
-                  value: newValue,
-                  open: !!disableCloseOnSelect,
-                }));
-              }
-
-              if (onChangeProp) {
-                onChangeProp(event, newValue, reason);
-              }
-            }
-          }
-          break;
-        case "clear":
-        case "remove-option":
-          {
-            resetInput(event, "");
-
-            const value = args[1] as Exclude<TValue, undefined>;
-
-            if (!isValueControlled) {
-              // NOT controlled, set value to local state.
-              setState((state) => ({
-                ...state,
-                value,
-              }));
-            }
-
-            if (onChangeProp) {
-              onChangeProp(event, value, reason);
-            }
-          }
-          break;
+  const renderInput = useCallback<NonNullable<Props["renderInput"]>>(
+    (params) => {
+      if (
+        props.multiple ||
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        !(value as any)?.parent ||
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        getOptionLabel(value as any) !== (params?.inputProps as any)?.value
+      ) {
+        return renderInputProp(params);
+      } else {
+        return renderInputProp({
+          ...params,
+          InputProps: mergeInputStartAdornment(
+            "prepend",
+            <Tooltip
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              title={BranchNode.pathToString((value as any).parent, {
+                branchToSting: getOptionLabel,
+              })}
+            >
+              <BranchPathIcon fontSize="small" />
+            </Tooltip>,
+            params.InputProps
+          ),
+        });
       }
     },
-    [
-      multiple,
-      branchPath,
-      upOneBranch,
-      resetInput,
-      setState,
-      isBranchPathControlled,
-      onBranchChange,
-      isValueControlled,
-      onChangeProp,
-      getOptionLabel,
-      disableCloseOnSelect,
-      value,
-    ]
+    [getOptionLabel, props.multiple, renderInputProp, value]
   );
 
-  const onBlur = useCallback<
-    NonNullable<
-      AutocompleteProps<unknown, Multiple, DisableClearable, FreeSolo>["onBlur"]
-    >
-  >(
+  const noOptions = useRef<boolean>(!options.length);
+  const filterOptions = useCallback<NonNullable<Props["filterOptions"]>>(
+    (options, state) => {
+      const filteredOptions =
+        options[0] === branch
+          ? [options[0], ...filterOptionsProp(options.slice(1), state)]
+          : filterOptionsProp(options, state);
+
+      noOptions.current =
+        filteredOptions.length === 0 ||
+        (filteredOptions.length === 1 && options[0] === branch);
+
+      return filteredOptions;
+    },
+    [filterOptionsProp, branch]
+  );
+
+  const handleBlur = useCallback<NonNullable<Props["onBlur"]>>(
     (...args) => {
       const [event] = args;
 
@@ -1236,17 +848,13 @@ const TreeSelect = <
       // input value stays in the input field on blur, but is not set as a value.
       // NOTE: This is not the case when autoSelect is true.  This ambiguous state
       // and behavior is addressed here.  The behavior will be to clear the input.
-      if (freeSolo && !autoSelect) {
+      if (props.freeSolo && !props.autoSelect) {
         if (inputValue.trim()) {
-          if (multiple || value === null) {
-            resetInput(event, "");
+          if (props.multiple || value === null) {
+            handleInputChange(event, "", "clear");
           } else {
-            resetInput(
-              event,
-              getOptionLabel(
-                value as FreeSoloValueMapping<FreeSolo, TBranchOption> | TOption
-              )
-            );
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            handleInputChange(event, getOptionLabel(value as any), "reset");
           }
         }
       }
@@ -1256,104 +864,78 @@ const TreeSelect = <
       }
     },
     [
-      freeSolo,
-      autoSelect,
+      props.freeSolo,
+      props.autoSelect,
+      props.multiple,
       onBlurProp,
       inputValue,
-      multiple,
       value,
-      resetInput,
+      handleInputChange,
       getOptionLabel,
     ]
   );
 
-  const options = useMemo<TOption[]>(() => {
-    const options: TOption[] = [];
+  const ListBoxProps = useMemo<NonNullable<Props["ListboxProps"]>>(() => {
+    return {
+      className: `MuiAutocomplete-listbox ${classes.listBox}`,
+      ...(ListboxPropsProp || {}),
+    };
+  }, [ListboxPropsProp, classes.listBox]);
 
-    if (branchPath.length > 0) {
-      const openBranchNode = lastElm(branchPath);
-
-      options.push(openBranchNode as BranchOption<TBranchOption>);
-
-      if (loading) {
-        options.push(LOADING_OPTION);
-      }
-    }
-
-    if (loading) {
-      return options;
-    } else {
-      return optionsProp.reduce((options, option) => {
-        options.push(
-          option instanceof BranchOption
-            ? option
-            : new Option(option, branchPath)
-        );
-        return options;
-      }, options);
-    }
-  }, [branchPath, optionsProp, loading]);
-
-  const ListboxProps = useMemo<
-    AutocompleteProps<
-      unknown,
-      Multiple,
-      DisableClearable,
-      FreeSolo
-    >["ListboxProps"]
-  >(() => {
-    if (branchPath.length > 0) {
-      return {
-        ...(ListboxPropsProp || {}),
-        className: `MuiAutocomplete-listbox ${
-          ((ListboxPropsProp || {}) as Record<string, string>).className || ""
-        } ${loading ? classes.listBoxWLoadingBranchNode : ""}`,
-      };
-    } else {
-      return ListboxPropsProp;
-    }
+  const isRootOptions = !branch;
+  const PaperComponent = useMemo(() => {
+    return forwardRef(({ children = null, ...paperProps }: PaperProps, ref) => {
+      return (
+        <PaperComponentProp {...paperProps} ref={ref}>
+          {children}
+          {props.loading && !isRootOptions ? (
+            <div className="MuiAutocomplete-loading">{loadingText}</div>
+          ) : null}
+          {!isRootOptions &&
+          noOptions.current &&
+          !props.freeSolo &&
+          !props.loading ? (
+            <div className="MuiAutocomplete-noOptions">{noOptionsText}</div>
+          ) : null}
+        </PaperComponentProp>
+      );
+    });
   }, [
-    ListboxPropsProp,
-    branchPath,
-    loading,
-    classes.listBoxWLoadingBranchNode,
+    PaperComponentProp,
+    isRootOptions,
+    loadingText,
+    noOptionsText,
+    props.freeSolo,
+    props.loading,
   ]);
 
   return (
     <Autocomplete
-      {...autoCompleteProps}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {...(rest as any[])}
       ref={ref}
-      autoSelect={autoSelect}
-      debug={debug}
-      disableClearable={disableClearable}
-      disableCloseOnSelect={disableCloseOnSelect}
-      filterOptions={filterOptions}
-      freeSolo={freeSolo}
-      getOptionDisabled={getOptionDisabled}
-      getOptionLabel={getOptionLabel}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      getOptionSelected={getOptionSelected as any}
-      groupBy={groupBy}
       inputValue={inputValue}
-      ListboxProps={ListboxProps}
-      loading={loading && branchPath.length === 0}
-      loadingText={loadingText}
-      multiple={multiple}
-      onBlur={onBlur}
-      onInputChange={onInputChange}
-      onChange={onChange}
-      onClose={onClose}
-      onOpen={onOpen}
-      open={open ?? state.open}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      options={options as any[]}
-      renderInput={renderInput}
-      renderOption={renderOption}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      renderTags={renderTags as any}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       value={value as any}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onChange={handleChange as any}
+      onInputChange={handleInputChange}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      options={options as any}
+      ListboxProps={ListBoxProps}
+      getOptionLabel={getOptionLabel}
+      renderOption={renderOption}
+      renderInput={renderInput}
+      open={open}
+      onClose={handleClose}
+      onOpen={handleOpen}
+      filterOptions={filterOptions}
+      PaperComponent={PaperComponent}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      renderTags={renderTags as any}
+      onBlur={handleBlur}
     />
   );
 };
+
 export default React.forwardRef(TreeSelect);
