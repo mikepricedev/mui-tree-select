@@ -138,7 +138,10 @@ type Branch = {branch:string};
     ...
   }, [])}
 
-  getOptionLabel={useCallback((value) => value instanceof BranchNode ? value.branch : value.value, [])}
+  getOptionLabel={useCallback((value) => value instanceof BranchNode ?
+    value.valueOf().branch
+    :
+    value.valueOf().value, [])}
 
   ...
 />
