@@ -53,6 +53,7 @@ const Tooltip_1 = __importDefault(require("@material-ui/core/Tooltip"));
 const Paper_1 = __importDefault(require("@material-ui/core/Paper"));
 const Chip_1 = __importDefault(require("@material-ui/core/Chip"));
 const SvgIcon_1 = __importDefault(require("@material-ui/core/SvgIcon"));
+const react_4 = require("react");
 class BaseNode {
     constructor(value) {
         __value_.set(this, void 0);
@@ -285,6 +286,13 @@ const defaultInput = (params) => react_1.default.createElement(TextField_1.defau
 exports.defaultInput = defaultInput;
 const TreeSelect = (props, ref) => {
     const classes = exports.useTreeSelectStyles();
+    const isMounted = react_2.useRef(false);
+    react_4.useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
     const { defaultValue = (props.multiple ? [] : null), inputValue: inputValueProp, value: valueProp, branch: branchProp, onChange, onInputChange, onBranchChange, options: optionsProp, renderOption: renderOptionProp, ListboxProps: ListboxPropsProp, getOptionLabel = defaultGetOptionLabel, renderInput: renderInputProp = exports.defaultInput, enterBranchText, exitBranchText, onClose, onOpen, open: openProp, filterOptions: filterOptionsProp = defaultFilterOptions, PaperComponent: PaperComponentProp = Paper_1.default, loadingText = "Loading…", noOptionsText = "No options", renderTags: renderTagsProp, onBlur: onBlurProp, ...rest } = props;
     const [value, setValue] = useControlled_1.default({
         controlled: valueProp,
@@ -367,6 +375,11 @@ const TreeSelect = (props, ref) => {
         value,
     ]);
     const handleInputChange = react_1.useCallback((event, inputValue, reason) => setTimeout(() => {
+        // This timeout reverses the call order of onInputChange and onChange
+        // in the underlying Autocomplete.  ONLY run if mounted.
+        if (!isMounted.current) {
+            return;
+        }
         if (inputValueOnBranchSelect.current === "abort") {
             inputValueOnBranchSelect.current = "continue";
         }
