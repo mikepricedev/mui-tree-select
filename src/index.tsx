@@ -19,6 +19,7 @@ import Paper, { PaperProps } from "@material-ui/core/Paper";
 import Chip, { ChipProps } from "@material-ui/core/Chip";
 import { InputProps } from "@material-ui/core/Input";
 import SvgIcon, { SvgIconProps } from "@material-ui/core/SvgIcon";
+import { useEffect } from "react";
 
 // https://stackoverflow.com/a/58473012
 declare module "react" {
@@ -542,6 +543,14 @@ const TreeSelect = <
 
   const classes = useTreeSelectStyles();
 
+  const isMounted = useRef(false);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const {
     defaultValue = (props.multiple ? [] : null) as typeof valueProp,
     inputValue: inputValueProp,
@@ -683,6 +692,12 @@ const TreeSelect = <
   const handleInputChange = useCallback<NonNullable<Props["onInputChange"]>>(
     (event, inputValue, reason) =>
       setTimeout(() => {
+        // This timeout reverses the call order of onInputChange and onChange
+        // in the underlying Autocomplete.  ONLY run if mounted.
+        if (!isMounted.current) {
+          return;
+        }
+
         if (inputValueOnBranchSelect.current === "abort") {
           inputValueOnBranchSelect.current = "continue";
         } else if (inputValueOnBranchSelect.current === "clear") {
