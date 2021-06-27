@@ -637,7 +637,7 @@ const TreeSelect = <
       } else {
         // If value is freeSolo convert to FreeSoloNode
         const newValueParsed =
-          reason === "create-option" && (newValue as string).trim()
+          typeof newValue === "string" && newValue.trim()
             ? new FreeSoloNode(newValue as string, branch)
             : (newValue as ValueNode<T, TBranch> | FreeSoloNode<TBranch>);
 

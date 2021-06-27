@@ -29,7 +29,7 @@ const Sample: React.FC = () => {
       <TreeSelect
         onBranchChange={useCallback((_,branch) => {
           if(branch) {
-            switch(branch.option) {
+            switch(branch.valueOf()) {
               case "baz":
                 setState([
                   "quux",
