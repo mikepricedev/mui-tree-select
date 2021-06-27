@@ -331,7 +331,7 @@ const TreeSelect = (props, ref) => {
         }
         else {
             // If value is freeSolo convert to FreeSoloNode
-            const newValueParsed = reason === "create-option" && newValue.trim()
+            const newValueParsed = typeof newValue === "string" && newValue.trim()
                 ? new FreeSoloNode(newValue, branch)
                 : newValue;
             const value = props.multiple
