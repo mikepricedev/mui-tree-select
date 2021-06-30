@@ -1,10 +1,16 @@
-import React, { useCallback, ReactNode, forwardRef, Fragment } from "react";
+import React, {
+  useCallback,
+  ReactNode,
+  forwardRef,
+  Fragment,
+  ForwardedRef,
+} from "react";
 import Autocomplete, {
   AutocompleteChangeReason,
   AutocompleteProps,
   AutocompleteRenderInputParams,
 } from "@material-ui/lab/Autocomplete";
-import { createFilterOptions } from "@material-ui/lab/useAutocomplete";
+import { createFilterOptions, Value } from "@material-ui/lab/useAutocomplete";
 import TextField, { TextFieldProps } from "@material-ui/core/TextField";
 import makeStyles from "@material-ui/core/styles/makeStyles";
 import useControlled from "@material-ui/core/utils/useControlled";
@@ -222,6 +228,19 @@ export type FreeSoloValueMapping<
   FreeSolo extends boolean | undefined,
   TBranch
 > = FreeSolo extends true ? FreeSoloNode<TBranch> : never;
+
+export type TreeSelectValue<
+  T,
+  TBranch,
+  Multiple extends boolean | undefined,
+  DisableClearable extends boolean | undefined,
+  FreeSolo extends boolean | undefined
+> = Value<
+  ValueNode<T, TBranch> | FreeSoloValueMapping<FreeSolo, TBranch>,
+  Multiple,
+  DisableClearable,
+  false
+>;
 
 export type TreeSelectProps<
   T,
@@ -522,7 +541,7 @@ export const defaultInput = (
   params: TextFieldProps | AutocompleteRenderInputParams
 ): JSX.Element => <TextField {...params} />;
 
-const TreeSelect = <
+export default forwardRef(function TreeSelect<
   T,
   TBranch,
   Multiple extends boolean | undefined,
@@ -531,8 +550,8 @@ const TreeSelect = <
 >(
   props: TreeSelectProps<T, TBranch, Multiple, DisableClearable, FreeSolo>,
 
-  ref: React.ForwardedRef<unknown>
-) => {
+  ref: ForwardedRef<unknown>
+) {
   type Props = TreeSelectProps<
     T,
     TBranch,
@@ -611,20 +630,32 @@ const TreeSelect = <
   );
 
   const handleChange = useCallback<
+    // Assume the MOST permissable typing
     NonNullable<
       AutocompleteProps<
         ValueNode<T, TBranch> | BranchNode<TBranch>,
         Multiple,
-        DisableClearable,
-        FreeSolo
+        false,
+        true
       >["onChange"]
     >
   >(
     (event, valueRaw, reason, ...rest) => {
-      const newValue = (props.multiple
-        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (valueRaw as any[])[(valueRaw as any[]).length - 1]
-        : valueRaw) as BranchNode<TBranch> | ValueNode<T, TBranch> | string;
+      type TValueMultiple = Value<
+        ValueNode<T, TBranch> | BranchNode<TBranch>,
+        true,
+        false,
+        true
+      >;
+
+      const newValue = props.multiple
+        ? (valueRaw as TValueMultiple)[(valueRaw as TValueMultiple).length - 1]
+        : (valueRaw as Value<
+            ValueNode<T, TBranch> | BranchNode<TBranch>,
+            false,
+            false,
+            true
+          >);
 
       if (newValue instanceof BranchNode) {
         if (!props.multiple && value) {
@@ -646,24 +677,46 @@ const TreeSelect = <
       } else {
         // If value is freeSolo convert to FreeSoloNode
         const newValueParsed =
-          typeof newValue === "string" && newValue.trim()
+          typeof newValue === "string"
             ? new FreeSoloNode(newValue as string, branch)
-            : (newValue as ValueNode<T, TBranch> | FreeSoloNode<TBranch>);
+            : newValue;
 
         const value = props.multiple
-          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (valueRaw as any[]).length
-            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              [...(valueRaw as any[]).slice(0, -1), newValueParsed]
-            : valueRaw
+          ? (((valueRaw as TValueMultiple).length
+              ? [...(valueRaw as TValueMultiple).slice(0, -1), newValueParsed]
+              : valueRaw) as TreeSelectValue<
+              T,
+              TBranch,
+              true,
+              DisableClearable,
+              true
+            >)
           : newValueParsed;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setValue(value as any);
+        setValue(
+          value as TreeSelectValue<
+            T,
+            TBranch,
+            Multiple,
+            DisableClearable,
+            FreeSolo
+          >
+        );
 
         if (onChange) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onChange(event, value as any, reason, ...(rest as any[]));
+          onChange(
+            event,
+            value as TreeSelectValue<
+              T,
+              TBranch,
+              Multiple,
+              DisableClearable,
+              FreeSolo
+            >,
+            reason,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ...(rest as any[])
+          );
         }
 
         if (reason === "select-option" && !props.disableCloseOnSelect) {
@@ -811,10 +864,11 @@ const TreeSelect = <
     (params) => {
       if (
         props.multiple ||
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        !(value as any)?.parent ||
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        getOptionLabel(value as any) !== (params?.inputProps as any)?.value
+        !(value as TreeSelectValue<T, TBranch, false, false, true>)?.parent ||
+        getOptionLabel(
+          value as TreeSelectValue<T, TBranch, false, true, FreeSolo>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ) !== (params?.inputProps as any)?.value
       ) {
         return renderInputProp(params);
       } else {
@@ -823,10 +877,15 @@ const TreeSelect = <
           InputProps: mergeInputStartAdornment(
             "prepend",
             <Tooltip
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              title={BranchNode.pathToString((value as any).parent, {
-                branchToSting: getOptionLabel,
-              })}
+              title={BranchNode.pathToString(
+                (value as TreeSelectValue<T, TBranch, false, true, true>)
+                  .parent as NonNullable<
+                  TreeSelectValue<T, TBranch, false, true, true>["parent"]
+                >,
+                {
+                  branchToSting: getOptionLabel,
+                }
+              )}
             >
               <BranchPathIcon fontSize="small" />
             </Tooltip>,
@@ -868,8 +927,13 @@ const TreeSelect = <
           if (props.multiple || value === null) {
             handleInputChange(event, "", "clear");
           } else {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            handleInputChange(event, getOptionLabel(value as any), "reset");
+            handleInputChange(
+              event,
+              getOptionLabel(
+                value as TreeSelectValue<T, TBranch, false, true, FreeSolo>
+              ),
+              "reset"
+            );
           }
         }
       }
@@ -951,6 +1015,4 @@ const TreeSelect = <
       onBlur={handleBlur}
     />
   );
-};
-
-export default React.forwardRef(TreeSelect);
+});
