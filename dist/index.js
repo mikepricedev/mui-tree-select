@@ -284,7 +284,7 @@ exports.DefaultOption = DefaultOption;
  */
 const defaultInput = (params) => react_1.default.createElement(TextField_1.default, Object.assign({}, params));
 exports.defaultInput = defaultInput;
-const TreeSelect = (props, ref) => {
+exports.default = react_1.forwardRef(function TreeSelect(props, ref) {
     const classes = exports.useTreeSelectStyles();
     const isMounted = react_2.useRef(false);
     react_4.useEffect(() => {
@@ -320,10 +320,9 @@ const TreeSelect = (props, ref) => {
     });
     const inputValueOnBranchSelect = react_2.useRef("continue");
     const handleChange = react_1.useCallback((event, valueRaw, reason, ...rest) => {
-        const newValue = (props.multiple
-            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                valueRaw[valueRaw.length - 1]
-            : valueRaw);
+        const newValue = props.multiple
+            ? valueRaw[valueRaw.length - 1]
+            : valueRaw;
         if (newValue instanceof BranchNode) {
             if (!props.multiple && value) {
                 inputValueOnBranchSelect.current = "abort";
@@ -339,21 +338,19 @@ const TreeSelect = (props, ref) => {
         }
         else {
             // If value is freeSolo convert to FreeSoloNode
-            const newValueParsed = typeof newValue === "string" && newValue.trim()
+            const newValueParsed = typeof newValue === "string"
                 ? new FreeSoloNode(newValue, branch)
                 : newValue;
             const value = props.multiple
-                ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    valueRaw.length
-                        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            [...valueRaw.slice(0, -1), newValueParsed]
-                        : valueRaw
+                ? (valueRaw.length
+                    ? [...valueRaw.slice(0, -1), newValueParsed]
+                    : valueRaw)
                 : newValueParsed;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setValue(value);
             if (onChange) {
+                onChange(event, value, reason, 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onChange(event, value, reason, ...rest);
+                ...rest);
             }
             if (reason === "select-option" && !props.disableCloseOnSelect) {
                 setOpen(false);
@@ -446,20 +443,17 @@ const TreeSelect = (props, ref) => {
     const renderInput = react_1.useCallback((params) => {
         var _a, _b;
         if (props.multiple ||
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             !((_a = value) === null || _a === void 0 ? void 0 : _a.parent) ||
+            getOptionLabel(value
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            getOptionLabel(value) !== ((_b = params === null || params === void 0 ? void 0 : params.inputProps) === null || _b === void 0 ? void 0 : _b.value)) {
+            ) !== ((_b = params === null || params === void 0 ? void 0 : params.inputProps) === null || _b === void 0 ? void 0 : _b.value)) {
             return renderInputProp(params);
         }
         else {
             return renderInputProp({
                 ...params,
-                InputProps: exports.mergeInputStartAdornment("prepend", react_1.default.createElement(Tooltip_1.default
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                , { 
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    title: BranchNode.pathToString(value.parent, {
+                InputProps: exports.mergeInputStartAdornment("prepend", react_1.default.createElement(Tooltip_1.default, { title: BranchNode.pathToString(value
+                        .parent, {
                         branchToSting: getOptionLabel,
                     }) },
                     react_1.default.createElement(BranchPathIcon, { fontSize: "small" })), params.InputProps),
@@ -488,7 +482,6 @@ const TreeSelect = (props, ref) => {
                     handleInputChange(event, "", "clear");
                 }
                 else {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     handleInputChange(event, getOptionLabel(value), "reset");
                 }
             }
@@ -542,6 +535,5 @@ const TreeSelect = (props, ref) => {
         options: options, ListboxProps: ListBoxProps, getOptionLabel: getOptionLabel, renderOption: renderOption, renderInput: renderInput, open: open, onClose: handleClose, onOpen: handleOpen, filterOptions: filterOptions, PaperComponent: PaperComponent, 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         renderTags: renderTags, onBlur: handleBlur })));
-};
-exports.default = react_1.default.forwardRef(TreeSelect);
+});
 //# sourceMappingURL=index.js.map

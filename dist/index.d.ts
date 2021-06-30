@@ -1,5 +1,6 @@
 import React, { ReactNode } from "react";
 import { AutocompleteChangeReason, AutocompleteProps, AutocompleteRenderInputParams } from "@material-ui/lab/Autocomplete";
+import { Value } from "@material-ui/lab/useAutocomplete";
 import { TextFieldProps } from "@material-ui/core/TextField";
 import { InputProps } from "@material-ui/core/Input";
 declare module "react" {
@@ -79,6 +80,7 @@ export declare class FreeSoloNode<TBranch = any> extends ValueNode<string, TBran
 }
 export declare type BranchSelectReason = Extract<AutocompleteChangeReason, "select-option">;
 export declare type FreeSoloValueMapping<FreeSolo extends boolean | undefined, TBranch> = FreeSolo extends true ? FreeSoloNode<TBranch> : never;
+export declare type TreeSelectValue<T, TBranch, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined> = Value<ValueNode<T, TBranch> | FreeSoloValueMapping<FreeSolo, TBranch>, Multiple, DisableClearable, false>;
 export declare type TreeSelectProps<T, TBranch, Multiple extends boolean | undefined, DisableClearable extends boolean | undefined, FreeSolo extends boolean | undefined> = Pick<AutocompleteProps<ValueNode<T, TBranch> | FreeSoloValueMapping<FreeSolo, TBranch>, Multiple, DisableClearable, false>, "value" | "onChange" | "renderTags"> & Pick<AutocompleteProps<ValueNode<T, TBranch> | FreeSoloValueMapping<FreeSolo, TBranch>, Multiple, DisableClearable, false>, "getOptionSelected" | "defaultValue"> & Pick<AutocompleteProps<ValueNode<T, TBranch> | BranchNode<TBranch> | FreeSoloValueMapping<FreeSolo, TBranch>, Multiple, DisableClearable, false>, "getOptionLabel"> & Pick<AutocompleteProps<ValueNode<T, TBranch> | BranchNode<TBranch>, Multiple, DisableClearable, false>, "filterOptions" | "onHighlightChange" | "renderOption" | "getOptionDisabled" | "groupBy"> & Pick<AutocompleteProps<T | BranchNode<TBranch>, Multiple, DisableClearable, false>, "options"> & Omit<AutocompleteProps<unknown, Multiple, DisableClearable, false>, "defaultValue" | "filterOptions" | "getOptionDisabled" | "getOptionLabel" | "getOptionSelected" | "groupBy" | "options" | "onChange" | "onHighlightChange" | "renderOption" | "renderTags" | "value" | "freeSolo" | "renderInput"> & {
     branch?: BranchNode<TBranch> | null;
     enterBranchText?: string;
