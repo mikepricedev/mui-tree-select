@@ -56,6 +56,16 @@ abstract class BaseNode<T> {
   }
 }
 
+/**
+ * Replacer method for {@link JSON.stringify} 2nd argument.
+ * This util assists in calling JSON.stringify on a BranchNode, ValueNode,
+ * FreeSoloNode, or any object containing the formers.
+ */
+export const nodeStringifyReplacer = (key: string, value: unknown): unknown =>
+  value instanceof BaseNode
+    ? nodeStringifyReplacer(key, value.valueOf())
+    : value;
+
 export class BranchNode<TBranch> extends BaseNode<TBranch> {
   #_parent_: BranchNode<TBranch> | null;
   constructor(branch: TBranch);
