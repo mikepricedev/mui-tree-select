@@ -14,6 +14,12 @@ declare abstract class BaseNode<T> {
     valueOf(): T;
     get [Symbol.toStringTag](): string;
 }
+/**
+ * Replacer method for {@link JSON.stringify} 2nd argument.
+ * This util assists in calling JSON.stringify on a BranchNode, ValueNode,
+ * FreeSoloNode, or any object containing the formers.
+ */
+export declare const nodeStringifyReplacer: (key: string, value: unknown) => unknown;
 export declare class BranchNode<TBranch> extends BaseNode<TBranch> {
     #private;
     constructor(branch: TBranch);

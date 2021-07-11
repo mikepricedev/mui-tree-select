@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 var __value_, __parent_, __parent_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.defaultInput = exports.DefaultOption = exports.useTreeSelectStyles = exports.mergeInputEndAdornment = exports.mergeInputStartAdornment = exports.FreeSoloNode = exports.ValueNode = exports.BranchNode = void 0;
+exports.defaultInput = exports.DefaultOption = exports.useTreeSelectStyles = exports.mergeInputEndAdornment = exports.mergeInputStartAdornment = exports.FreeSoloNode = exports.ValueNode = exports.BranchNode = exports.nodeStringifyReplacer = void 0;
 const react_1 = __importStar(require("react"));
 const Autocomplete_1 = __importDefault(require("@material-ui/lab/Autocomplete"));
 const useAutocomplete_1 = require("@material-ui/lab/useAutocomplete");
@@ -69,6 +69,15 @@ class BaseNode {
         return this.constructor.name;
     }
 }
+/**
+ * Replacer method for {@link JSON.stringify} 2nd argument.
+ * This util assists in calling JSON.stringify on a BranchNode, ValueNode,
+ * FreeSoloNode, or any object containing the formers.
+ */
+const nodeStringifyReplacer = (key, value) => value instanceof BaseNode
+    ? exports.nodeStringifyReplacer(key, value.valueOf())
+    : value;
+exports.nodeStringifyReplacer = nodeStringifyReplacer;
 class BranchNode extends BaseNode {
     constructor(branch, parent = null) {
         super(branch);
