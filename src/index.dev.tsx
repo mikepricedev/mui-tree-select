@@ -84,7 +84,6 @@ const Sample: React.FC = () => {
   return (
     <div style={{ width: 350, padding: 16 }}>
       <TreeSelect<string, TBranchOption, false, false, true>
-        // debug
         branch={state.single.branch}
         onBranchChange={(_, branch) => {
           const options = generateOptions(branch);

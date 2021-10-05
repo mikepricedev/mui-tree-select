@@ -4,34 +4,39 @@ import React, {
   forwardRef,
   ForwardedRef,
   useState,
+  useRef,
+  useMemo,
 } from "react";
-import Autocomplete, {
+import {
+  Autocomplete,
   AutocompleteChangeReason,
   AutocompleteProps,
   AutocompleteRenderInputParams,
   AutocompleteRenderOptionState,
-} from "@material-ui/lab/Autocomplete";
-import { createFilterOptions, Value } from "@material-ui/lab/useAutocomplete";
-import TextField, { TextFieldProps } from "@material-ui/core/TextField";
+  createFilterOptions,
+  Value,
+} from "@material-ui/lab";
 import makeStyles from "@material-ui/core/styles/makeStyles";
 import useControlled from "@material-ui/core/utils/useControlled";
-import { useRef } from "react";
-import { useMemo } from "react";
-import ChevronRightIcon from "@material-ui/icons/ChevronRight";
-import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
-// import Divider from "@material-ui/core/Divider";
-// import Typography from "@material-ui/core/Typography";
-import Tooltip from "@material-ui/core/Tooltip";
-import Paper, { PaperProps } from "@material-ui/core/Paper";
-import Chip, { ChipProps } from "@material-ui/core/Chip";
-import { InputProps } from "@material-ui/core/Input";
-import SvgIcon, { SvgIconProps } from "@material-ui/core/SvgIcon";
-import { useEffect } from "react";
 import {
+  ChevronRight as ChevronRightIcon,
+  ChevronLeft as ChevronLeftIcon,
+} from "@material-ui/icons";
+import {
+  Chip,
+  ChipProps,
+  InputProps,
   ListItem,
   ListItemIcon,
   ListItemText,
   ListItemTextProps,
+  Paper,
+  PaperProps,
+  SvgIcon,
+  SvgIconProps,
+  TextField,
+  TextFieldProps,
+  Tooltip,
 } from "@material-ui/core";
 
 // https://stackoverflow.com/a/58473012
@@ -252,9 +257,16 @@ export type TreeSelectRenderOptionState<
   branch: BranchNode<TBranch> | null;
   exitBranchText: string;
   enterBranchText: string;
-  getOptionLabel: (
-    option: ValueNode<T, TBranch> | BranchNode<TBranch>
-  ) => string;
+  addFreeSoloText: string;
+  getOptionLabel: NonNullable<
+    TreeSelectProps<
+      T,
+      TBranch,
+      Multiple,
+      DisableClearable,
+      FreeSolo
+    >["getOptionLabel"]
+  >;
 };
 
 export type FreeSoloValueMapping<
@@ -358,6 +370,7 @@ export type TreeSelectProps<
       branch?: BranchNode<TBranch> | null;
       enterBranchText?: string;
       exitBranchText?: string;
+      addFreeSoloText?: string;
       freeSolo?: FreeSolo;
       onBranchChange: (
         event:
@@ -372,7 +385,10 @@ export type TreeSelectProps<
       ) => JSX.Element;
       renderOption?: (
         props: React.HTMLAttributes<HTMLLIElement>,
-        option: ValueNode<T, TBranch> | BranchNode<TBranch>,
+        option:
+          | ValueNode<T, TBranch>
+          | BranchNode<TBranch>
+          | FreeSoloValueMapping<FreeSolo, TBranch>,
         state: TreeSelectRenderOptionState<
           T,
           TBranch,
@@ -466,10 +482,10 @@ const useDefaultOptionStyles = makeStyles((theme) => ({
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const defaultFilterOptions = createFilterOptions<any>();
 
-const primaryTypographyProps: NonNullable<
-  ListItemTextProps["primaryTypographyProps"]
-> = {
-  noWrap: true,
+const defaultListItemTextProps: NonNullable<ListItemTextProps> = {
+  primaryTypographyProps: {
+    noWrap: true,
+  },
 };
 export const DefaultOption = <
   T,
@@ -479,7 +495,10 @@ export const DefaultOption = <
   FreeSolo extends boolean | undefined
 >(props: {
   props: React.HTMLAttributes<HTMLLIElement>;
-  option: ValueNode<T, TBranch> | BranchNode<TBranch>;
+  option:
+    | ValueNode<T, TBranch>
+    | BranchNode<TBranch>
+    | FreeSoloValueMapping<FreeSolo, TBranch>;
   state: TreeSelectRenderOptionState<
     T,
     TBranch,
@@ -494,13 +513,23 @@ export const DefaultOption = <
   const {
     props: liProps,
     option,
-    state: { branch, exitBranchText, enterBranchText, getOptionLabel },
-    ListItemTextProps,
+    state: {
+      branch,
+      exitBranchText,
+      enterBranchText,
+      addFreeSoloText,
+      getOptionLabel,
+    },
+    ListItemTextProps: ListItemTextPropsProp,
   } = props;
 
-  const optionLabel = getOptionLabel(option);
+  const isAddFreeSoloOption = option instanceof FreeSoloNode;
 
-  const isBranch = option instanceof BranchNode;
+  const optionLabel = isAddFreeSoloOption
+    ? `${addFreeSoloText} "${getOptionLabel(option)}"`
+    : getOptionLabel(option);
+
+  const isBranch = !isAddFreeSoloOption && option instanceof BranchNode;
   const isUpBranch = isBranch && branch === option;
 
   return (
@@ -514,8 +543,8 @@ export const DefaultOption = <
       )}
       <ListItemText
         primary={optionLabel}
-        primaryTypographyProps={primaryTypographyProps}
-        {...ListItemTextProps}
+        {...defaultListItemTextProps}
+        {...ListItemTextPropsProp}
       />
 
       {isBranch && !isUpBranch && (
@@ -534,7 +563,10 @@ type CaptureOptionProps<
   DisableClearable extends boolean | undefined,
   FreeSolo extends boolean | undefined
 > = {
-  option: ValueNode<T, TBranch> | BranchNode<TBranch>;
+  option:
+    | ValueNode<T, TBranch>
+    | BranchNode<TBranch>
+    | FreeSoloValueMapping<FreeSolo, TBranch>;
   state: TreeSelectRenderOptionState<
     T,
     TBranch,
@@ -581,14 +613,6 @@ export default forwardRef(function TreeSelect<
     FreeSolo
   >;
 
-  const isMounted = useRef(false);
-  useEffect(() => {
-    isMounted.current = true;
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
   const {
     defaultValue = (props.multiple ? [] : null) as typeof valueProp,
     inputValue: inputValueProp,
@@ -602,8 +626,8 @@ export default forwardRef(function TreeSelect<
     ListboxComponent: ListboxComponentProp = "ul",
     getOptionLabel = defaultGetOptionLabel,
     renderInput: renderInputProp = defaultInput,
-    enterBranchText = "Exit",
-    exitBranchText = "Enter",
+    enterBranchText = "Enter",
+    exitBranchText = "Exit",
     onClose,
     onOpen,
     clearOnBlur: clearOnBlurProp,
@@ -612,6 +636,7 @@ export default forwardRef(function TreeSelect<
     PaperComponent: PaperComponentProp = Paper,
     loadingText = "Loading…",
     noOptionsText = "No options",
+    addFreeSoloText = "Add",
     renderTags: renderTagsProp,
     onHighlightChange: onHighlightChangeProp,
     ...rest
@@ -664,7 +689,7 @@ export default forwardRef(function TreeSelect<
     // Assume the MOST permissable typing
     NonNullable<
       AutocompleteProps<
-        ValueNode<T, TBranch>,
+        ValueNode<T, TBranch> | FreeSoloNode<TBranch>,
         Multiple,
         false,
         true
@@ -786,11 +811,19 @@ export default forwardRef(function TreeSelect<
           branch,
           enterBranchText,
           exitBranchText,
+          addFreeSoloText,
           getOptionLabel,
         }}
       />
     ),
-    [branch, enterBranchText, exitBranchText, getOptionLabel, value]
+    [
+      addFreeSoloText,
+      branch,
+      enterBranchText,
+      exitBranchText,
+      getOptionLabel,
+      value,
+    ]
   );
 
   const renderTags = useCallback<NonNullable<Props["renderTags"]>>(
@@ -952,13 +985,17 @@ export default forwardRef(function TreeSelect<
           ? [options[0], ...filterOptionsProp(options.slice(1), state)]
           : filterOptionsProp(options, state);
 
+      if (props.freeSolo && state.inputValue.trim()) {
+        filteredOptions.push(new FreeSoloNode(state.inputValue, branch));
+      }
+
       noOptions.current =
         filteredOptions.length === 0 ||
         (filteredOptions.length === 1 && options[0] === branch);
 
       return filteredOptions;
     },
-    [filterOptionsProp, branch]
+    [branch, filterOptionsProp, props.freeSolo]
   );
 
   const handleHighlightChange = useCallback<
