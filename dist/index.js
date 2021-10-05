@@ -482,11 +482,12 @@ exports.default = (0, react_1.forwardRef)(function TreeSelect(props, ref) {
                 props.loading && !isRootOptions ? (react_1.default.createElement("div", { className: "MuiAutocomplete-loading" }, loadingText)) : null,
                 !isRootOptions &&
                     noOptions.current &&
-                    !props.freeSolo &&
+                    (!props.freeSolo || !inputValue) &&
                     !props.loading ? (react_1.default.createElement("div", { className: "MuiAutocomplete-noOptions" }, noOptionsText)) : null));
         });
     }, [
         PaperComponentProp,
+        inputValue,
         isRootOptions,
         loadingText,
         noOptionsText,
@@ -504,7 +505,7 @@ exports.default = (0, react_1.forwardRef)(function TreeSelect(props, ref) {
                         if (liContent &&
                             typeof liContent === "object" &&
                             "props" in liContent) {
-                            const { option, state, } = liContent.props;
+                            const { option, state } = liContent.props;
                             const renderOptionProps = {
                                 ...optionLi.props,
                                 onClick: (event) => {
