@@ -1022,7 +1022,7 @@ export default forwardRef(function TreeSelect<
           ) : null}
           {!isRootOptions &&
           noOptions.current &&
-          !props.freeSolo &&
+          (!props.freeSolo || !inputValue) &&
           !props.loading ? (
             <div className="MuiAutocomplete-noOptions">{noOptionsText}</div>
           ) : null}
@@ -1031,6 +1031,7 @@ export default forwardRef(function TreeSelect<
     });
   }, [
     PaperComponentProp,
+    inputValue,
     isRootOptions,
     loadingText,
     noOptionsText,
@@ -1042,29 +1043,26 @@ export default forwardRef(function TreeSelect<
     return React.forwardRef<
       HTMLUListElement,
       React.HTMLAttributes<HTMLUListElement>
-    >(
-      ({ children, ...rest }, ref): JSX.Element => {
-        return (
-          <ListboxComponentProp ref={ref} {...rest}>
-            {React.Children.map(children, (optionLi) => {
-              if (
-                optionLi &&
-                typeof optionLi === "object" &&
-                "props" in optionLi &&
+    >(({ children, ...rest }, ref): JSX.Element => {
+      return (
+        <ListboxComponentProp ref={ref} {...rest}>
+          {React.Children.map(children, (optionLi) => {
+            if (
+              optionLi &&
+              typeof optionLi === "object" &&
+              "props" in optionLi &&
+              optionLi.props.children
+            ) {
+              for (const liContent of React.Children.toArray(
                 optionLi.props.children
-              ) {
-                for (const liContent of React.Children.toArray(
-                  optionLi.props.children
-                )) {
-                  if (
-                    liContent &&
-                    typeof liContent === "object" &&
-                    "props" in liContent
-                  ) {
-                    const {
-                      option,
-                      state,
-                    } = liContent.props as CaptureOptionProps<
+              )) {
+                if (
+                  liContent &&
+                  typeof liContent === "object" &&
+                  "props" in liContent
+                ) {
+                  const { option, state } =
+                    liContent.props as CaptureOptionProps<
                       T,
                       TBranch,
                       Multiple,
@@ -1072,58 +1070,57 @@ export default forwardRef(function TreeSelect<
                       FreeSolo
                     >;
 
-                    const renderOptionProps = {
-                      ...optionLi.props,
-                      onClick: (event) => {
-                        if (option instanceof BranchNode) {
-                          const [nextBranch, direction]: [
-                            BranchNode<TBranch> | null,
-                            PathDirection
-                          ] =
-                            option === branch
-                              ? [option.parent, "up"]
-                              : [option, "down"];
+                  const renderOptionProps = {
+                    ...optionLi.props,
+                    onClick: (event) => {
+                      if (option instanceof BranchNode) {
+                        const [nextBranch, direction]: [
+                          BranchNode<TBranch> | null,
+                          PathDirection
+                        ] =
+                          option === branch
+                            ? [option.parent, "up"]
+                            : [option, "down"];
 
-                          if (
-                            (props.multiple && state.inputValue) ||
-                            !state.value
-                          ) {
-                            handleInputChange(event, "", "reset");
-                          }
-
-                          handleBranchChange(
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            event as any,
-                            nextBranch,
-                            direction,
-                            "select-option"
-                          );
-                        } else if (optionLi.props.onClick) {
-                          optionLi.props.onClick(event);
+                        if (
+                          (props.multiple && state.inputValue) ||
+                          !state.value
+                        ) {
+                          handleInputChange(event, "", "reset");
                         }
-                      },
-                    } as Parameters<NonNullable<Props["renderOption"]>>[0];
 
-                    if (renderOptionProp) {
-                      return renderOptionProp(renderOptionProps, option, state);
-                    } else {
-                      return (
-                        <DefaultOption
-                          props={renderOptionProps}
-                          option={option}
-                          state={state}
-                        />
-                      );
-                    }
+                        handleBranchChange(
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          event as any,
+                          nextBranch,
+                          direction,
+                          "select-option"
+                        );
+                      } else if (optionLi.props.onClick) {
+                        optionLi.props.onClick(event);
+                      }
+                    },
+                  } as Parameters<NonNullable<Props["renderOption"]>>[0];
+
+                  if (renderOptionProp) {
+                    return renderOptionProp(renderOptionProps, option, state);
+                  } else {
+                    return (
+                      <DefaultOption
+                        props={renderOptionProps}
+                        option={option}
+                        state={state}
+                      />
+                    );
                   }
                 }
               }
-              return optionLi;
-            })}
-          </ListboxComponentProp>
-        );
-      }
-    );
+            }
+            return optionLi;
+          })}
+        </ListboxComponentProp>
+      );
+    });
   }, [
     ListboxComponentProp,
     branch,
