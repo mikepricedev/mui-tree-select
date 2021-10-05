@@ -481,10 +481,7 @@ exports.default = react_1.forwardRef(function TreeSelect(props, ref) {
     }, [filterOptionsProp, branch]);
     const handleBlur = react_1.useCallback((...args) => {
         const [event] = args;
-        // When freeSolo is true and autoSelect is false,  an uncommitted free solo
-        // input value stays in the input field on blur, but is not set as a value.
-        // NOTE: This is not the case when autoSelect is true.  This ambiguous state
-        // and behavior is addressed here.  The behavior will be to clear the input.
+        /* When freeSolo is true and autoSelect is false,  an uncommitted free solo input value stays in the input field on blur, but is not set as a value.  NOTE: This is not the case when autoSelect is true.  This ambiguous state and behavior is addressed here.  The behavior will be to clear the input. */
         if (props.freeSolo && !props.autoSelect) {
             if (inputValue.trim()) {
                 if (props.multiple || value === null) {

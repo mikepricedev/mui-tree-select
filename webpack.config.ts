@@ -1,12 +1,14 @@
 import * as path from "path";
-import { Configuration } from "webpack";
+import { Configuration, WebpackOptionsNormalized } from "webpack";
 import ForkTsCheckerWebpackPlugin from "fork-ts-checker-webpack-plugin";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import { RuleSetUseItem } from "webpack";
 
 const { name } = require("./package.json") as { name: string };
 
-module.exports = (env): Configuration => {
+module.exports = (
+  env
+): Configuration & Pick<WebpackOptionsNormalized, "devServer"> => {
   const mode = env?.NODE_ENV ?? "production";
 
   const isDev = mode !== "production";
@@ -34,7 +36,7 @@ module.exports = (env): Configuration => {
   return {
     entry: isDev ? "./src/index.dev.tsx" : "./src/index.tsx",
     devtool: isDev ? "inline-source-map" : "source-map",
-    devServer: isDev ? { contentBase } : undefined,
+    devServer: isDev ? { static: contentBase } : undefined,
     mode,
     output: {
       path: path.resolve(__dirname, contentBase),

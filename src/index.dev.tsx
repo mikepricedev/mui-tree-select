@@ -84,6 +84,7 @@ const Sample: React.FC = () => {
   return (
     <div style={{ width: 350, padding: 16 }}>
       <TreeSelect<string, TBranchOption, false, false, true>
+        // debug
         branch={state.single.branch}
         onBranchChange={(_, branch) => {
           const options = generateOptions(branch);
@@ -119,6 +120,8 @@ const Sample: React.FC = () => {
             }));
           }
         }}
+        autoSelect
+        freeSolo
         options={state.single.options}
         loading={state.single.loading}
         getOptionLabel={getOptionLabel}
@@ -183,6 +186,7 @@ const Sample: React.FC = () => {
         loading={state.multiple.loading}
         getOptionLabel={getOptionLabel}
         freeSolo
+        autoSelect
         multiple
         renderInput={useCallback(
           (params) =>

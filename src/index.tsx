@@ -2,13 +2,14 @@ import React, {
   useCallback,
   ReactNode,
   forwardRef,
-  Fragment,
   ForwardedRef,
+  useState,
 } from "react";
 import Autocomplete, {
   AutocompleteChangeReason,
   AutocompleteProps,
   AutocompleteRenderInputParams,
+  AutocompleteRenderOptionState,
 } from "@material-ui/lab/Autocomplete";
 import { createFilterOptions, Value } from "@material-ui/lab/useAutocomplete";
 import TextField, { TextFieldProps } from "@material-ui/core/TextField";
@@ -18,14 +19,20 @@ import { useRef } from "react";
 import { useMemo } from "react";
 import ChevronRightIcon from "@material-ui/icons/ChevronRight";
 import ChevronLeftIcon from "@material-ui/icons/ChevronLeft";
-import Divider from "@material-ui/core/Divider";
-import Typography from "@material-ui/core/Typography";
+// import Divider from "@material-ui/core/Divider";
+// import Typography from "@material-ui/core/Typography";
 import Tooltip from "@material-ui/core/Tooltip";
 import Paper, { PaperProps } from "@material-ui/core/Paper";
 import Chip, { ChipProps } from "@material-ui/core/Chip";
 import { InputProps } from "@material-ui/core/Input";
 import SvgIcon, { SvgIconProps } from "@material-ui/core/SvgIcon";
 import { useEffect } from "react";
+import {
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  ListItemTextProps,
+} from "@material-ui/core";
 
 // https://stackoverflow.com/a/58473012
 declare module "react" {
@@ -234,6 +241,22 @@ export type BranchSelectReason = Extract<
   "select-option"
 >;
 
+export type TreeSelectRenderOptionState<
+  T,
+  TBranch,
+  Multiple extends boolean | undefined,
+  DisableClearable extends boolean | undefined,
+  FreeSolo extends boolean | undefined
+> = AutocompleteRenderOptionState & {
+  value: TreeSelectValue<T, TBranch, Multiple, DisableClearable, FreeSolo>;
+  branch: BranchNode<TBranch> | null;
+  exitBranchText: string;
+  enterBranchText: string;
+  getOptionLabel: (
+    option: ValueNode<T, TBranch> | BranchNode<TBranch>
+  ) => string;
+};
+
 export type FreeSoloValueMapping<
   FreeSolo extends boolean | undefined,
   TBranch
@@ -299,11 +322,7 @@ export type TreeSelectProps<
         DisableClearable,
         false
       >,
-      | "filterOptions"
-      | "onHighlightChange"
-      | "renderOption"
-      | "getOptionDisabled"
-      | "groupBy"
+      "filterOptions" | "onHighlightChange" | "getOptionDisabled" | "groupBy"
     > &
     // T, BranchNode
     Pick<
@@ -328,20 +347,22 @@ export type TreeSelectProps<
       | "options"
       | "onChange"
       | "onHighlightChange"
-      | "renderOption"
       | "renderTags"
       | "value"
 
       // Omits
       | "freeSolo"
       | "renderInput"
+      | "renderOption"
     > & {
       branch?: BranchNode<TBranch> | null;
       enterBranchText?: string;
       exitBranchText?: string;
       freeSolo?: FreeSolo;
       onBranchChange: (
-        event: React.ChangeEvent<Record<string, unknown>>,
+        event:
+          | React.ChangeEvent<HTMLElement>
+          | React.KeyboardEvent<HTMLElement>,
         branch: BranchNode<TBranch> | null,
         direction: PathDirection,
         reason: BranchSelectReason
@@ -349,6 +370,17 @@ export type TreeSelectProps<
       renderInput?: (
         params: AutocompleteRenderInputParams | TextFieldProps
       ) => JSX.Element;
+      renderOption?: (
+        props: React.HTMLAttributes<HTMLLIElement>,
+        option: ValueNode<T, TBranch> | BranchNode<TBranch>,
+        state: TreeSelectRenderOptionState<
+          T,
+          TBranch,
+          Multiple,
+          DisableClearable,
+          FreeSolo
+        >
+      ) => React.ReactNode;
     };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -381,15 +413,15 @@ export const mergeInputStartAdornment = (
   startAdornment: (() => {
     if (inputProps.startAdornment) {
       return action === "append" ? (
-        <Fragment>
+        <>
           {inputProps.startAdornment}
           {adornment}
-        </Fragment>
+        </>
       ) : (
-        <Fragment>
+        <>
           {adornment}
           {inputProps.startAdornment}
-        </Fragment>
+        </>
       );
     } else {
       return adornment;
@@ -406,15 +438,15 @@ export const mergeInputEndAdornment = (
   endAdornment: (() => {
     if (inputProps.endAdornment) {
       return action === "append" ? (
-        <Fragment>
+        <>
           {inputProps.endAdornment}
           {adornment}
-        </Fragment>
+        </>
       ) : (
-        <Fragment>
+        <>
           {adornment}
           {inputProps.endAdornment}
-        </Fragment>
+        </>
       );
     } else {
       return adornment;
@@ -422,127 +454,106 @@ export const mergeInputEndAdornment = (
   })(),
 });
 
-export const useTreeSelectStyles = makeStyles({
-  listBox: {
-    "& > .MuiAutocomplete-option": {
-      margin: "0px !important",
-      padding: "0px !important",
-    },
-  },
-});
-
-const useDefaultOptionStyles = makeStyles({
-  optionItemContainer: {
-    width: "100%",
-  },
+const useDefaultOptionStyles = makeStyles((theme) => ({
   upBranchIcon: {
-    marginLeft: "-8px",
-    marginRight: "24px",
+    marginLeft: `-${theme.spacing(1)}px`,
   },
   downBranchIcon: {
-    marginLeft: "16px",
+    marginLeft: theme.spacing(2),
   },
-  optionItem: {
-    width: "100%",
-  },
-});
+}));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const defaultFilterOptions = createFilterOptions<any>();
 
-export const DefaultOption = <T, TBranch>(props: {
+const primaryTypographyProps: NonNullable<
+  ListItemTextProps["primaryTypographyProps"]
+> = {
+  noWrap: true,
+};
+export const DefaultOption = <
+  T,
+  TBranch,
+  Multiple extends boolean | undefined,
+  DisableClearable extends boolean | undefined,
+  FreeSolo extends boolean | undefined
+>(props: {
+  props: React.HTMLAttributes<HTMLLIElement>;
   option: ValueNode<T, TBranch> | BranchNode<TBranch>;
-  curBranch: BranchNode<TBranch> | null;
-  exitBranchText?: string;
-  enterBranchText?: string;
-  getOptionLabel: (
-    option: ValueNode<T, TBranch> | BranchNode<TBranch>
-  ) => string;
-  renderOption?: (
-    option: ValueNode<T, TBranch> | BranchNode<TBranch>
-  ) => ReactNode;
+  state: TreeSelectRenderOptionState<
+    T,
+    TBranch,
+    Multiple,
+    DisableClearable,
+    FreeSolo
+  >;
+  ListItemTextProps?: Partial<ListItemTextProps>;
 }): JSX.Element => {
   const classes = useDefaultOptionStyles();
 
   const {
+    props: liProps,
     option,
-    curBranch,
-    exitBranchText = "Exit",
-    enterBranchText = "Enter",
-    getOptionLabel,
+    state: { branch, exitBranchText, enterBranchText, getOptionLabel },
+    ListItemTextProps,
   } = props;
 
-  const renderOption = props.renderOption || getOptionLabel;
+  const optionLabel = getOptionLabel(option);
 
   const isBranch = option instanceof BranchNode;
-  const isUpBranch = isBranch && curBranch === option;
+  const isUpBranch = isBranch && branch === option;
 
-  const optionNode = renderOption(option);
-  const optionNodeIsStr = typeof optionNode === "string";
-
-  const optionDiv = (
-    <div className={`MuiAutocomplete-option ${classes.optionItemContainer}`}>
-      {isUpBranch ? (
-        <Fragment>
-          <Tooltip title={exitBranchText}>
+  return (
+    <ListItem {...liProps} dense divider={isUpBranch}>
+      {isUpBranch && (
+        <Tooltip title={exitBranchText}>
+          <ListItemIcon>
             <ChevronLeftIcon className={classes.upBranchIcon} />
-          </Tooltip>
-          <Tooltip
-            title={BranchNode.pathToString(option as BranchNode<TBranch>, {
-              branchToSting: getOptionLabel,
-            })}
-          >
-            {optionNodeIsStr ? (
-              <Typography
-                component="div"
-                variant="inherit"
-                color="inherit"
-                align="left"
-                noWrap
-              >
-                {optionNode as string}
-              </Typography>
-            ) : (
-              <div>{optionNode}</div>
-            )}
-          </Tooltip>
-        </Fragment>
-      ) : (
-        <Fragment>
-          {optionNodeIsStr ? (
-            <Typography
-              className={classes.optionItem}
-              component="div"
-              variant="inherit"
-              color="inherit"
-              align="left"
-              noWrap
-            >
-              {optionNode as string}
-            </Typography>
-          ) : (
-            <div className={classes.optionItem}>{optionNode}</div>
-          )}
-
-          {isBranch && (
-            <Tooltip title={enterBranchText}>
-              <ChevronRightIcon className={classes.downBranchIcon} />
-            </Tooltip>
-          )}
-        </Fragment>
+          </ListItemIcon>
+        </Tooltip>
       )}
-    </div>
-  );
+      <ListItemText
+        primary={optionLabel}
+        primaryTypographyProps={primaryTypographyProps}
+        {...ListItemTextProps}
+      />
 
-  return isUpBranch ? (
-    <div className={classes.optionItemContainer}>
-      {optionDiv}
-      <Divider />
-    </div>
-  ) : (
-    optionDiv
+      {isBranch && !isUpBranch && (
+        <Tooltip title={enterBranchText}>
+          <ChevronRightIcon className={classes.downBranchIcon} />
+        </Tooltip>
+      )}
+    </ListItem>
   );
 };
+
+type CaptureOptionProps<
+  T,
+  TBranch,
+  Multiple extends boolean | undefined,
+  DisableClearable extends boolean | undefined,
+  FreeSolo extends boolean | undefined
+> = {
+  option: ValueNode<T, TBranch> | BranchNode<TBranch>;
+  state: TreeSelectRenderOptionState<
+    T,
+    TBranch,
+    Multiple,
+    DisableClearable,
+    FreeSolo
+  >;
+};
+const CaptureOptionPlaceHolder = <div></div>;
+const CaptureOption = <
+  T,
+  TBranch,
+  Multiple extends boolean | undefined,
+  DisableClearable extends boolean | undefined,
+  FreeSolo extends boolean | undefined
+>(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  props: CaptureOptionProps<T, TBranch, Multiple, DisableClearable, FreeSolo>
+): JSX.Element => CaptureOptionPlaceHolder;
 
 /**
  * Renders a TextField
@@ -570,8 +581,6 @@ export default forwardRef(function TreeSelect<
     FreeSolo
   >;
 
-  const classes = useTreeSelectStyles();
-
   const isMounted = useRef(false);
   useEffect(() => {
     isMounted.current = true;
@@ -587,23 +596,24 @@ export default forwardRef(function TreeSelect<
     branch: branchProp,
     onChange,
     onInputChange,
-    onBranchChange,
+    onBranchChange: onBranchChangeProp,
     options: optionsProp,
     renderOption: renderOptionProp,
-    ListboxProps: ListboxPropsProp,
+    ListboxComponent: ListboxComponentProp = "ul",
     getOptionLabel = defaultGetOptionLabel,
     renderInput: renderInputProp = defaultInput,
-    enterBranchText,
-    exitBranchText,
+    enterBranchText = "Exit",
+    exitBranchText = "Enter",
     onClose,
     onOpen,
+    clearOnBlur: clearOnBlurProp,
     open: openProp,
     filterOptions: filterOptionsProp = defaultFilterOptions,
     PaperComponent: PaperComponentProp = Paper,
     loadingText = "Loading…",
     noOptionsText = "No options",
     renderTags: renderTagsProp,
-    onBlur: onBlurProp,
+    onHighlightChange: onHighlightChangeProp,
     ...rest
   } = props;
 
@@ -635,15 +645,26 @@ export default forwardRef(function TreeSelect<
     state: "open",
   });
 
-  const inputValueOnBranchSelect = useRef<"clear" | "abort" | "continue">(
-    "continue"
+  const [highlightedOption, setHighlightedOption] = useState<
+    ValueNode<T, TBranch> | BranchNode<TBranch> | null
+  >(null);
+
+  const handleBranchChange = useCallback<NonNullable<Props["onBranchChange"]>>(
+    (...args) => {
+      setBranch(args[1]);
+
+      if (onBranchChangeProp) {
+        onBranchChangeProp(...args);
+      }
+    },
+    [onBranchChangeProp, setBranch]
   );
 
   const handleChange = useCallback<
     // Assume the MOST permissable typing
     NonNullable<
       AutocompleteProps<
-        ValueNode<T, TBranch> | BranchNode<TBranch>,
+        ValueNode<T, TBranch>,
         Multiple,
         false,
         true
@@ -651,145 +672,75 @@ export default forwardRef(function TreeSelect<
     >
   >(
     (event, valueRaw, reason, ...rest) => {
-      type TValueMultiple = Value<
-        ValueNode<T, TBranch> | BranchNode<TBranch>,
-        true,
-        false,
-        true
-      >;
+      type TValueMultiple = Value<ValueNode<T, TBranch>, true, false, true>;
 
       const newValue = props.multiple
         ? (valueRaw as TValueMultiple)[(valueRaw as TValueMultiple).length - 1]
-        : (valueRaw as Value<
-            ValueNode<T, TBranch> | BranchNode<TBranch>,
-            false,
-            false,
+        : (valueRaw as Value<ValueNode<T, TBranch>, false, false, true>);
+
+      // If value is freeSolo convert to FreeSoloNode
+      const newValueParsed =
+        typeof newValue === "string"
+          ? new FreeSoloNode(newValue, branch)
+          : newValue;
+
+      const value = props.multiple
+        ? (((valueRaw as TValueMultiple).length
+            ? [...(valueRaw as TValueMultiple).slice(0, -1), newValueParsed]
+            : valueRaw) as TreeSelectValue<
+            T,
+            TBranch,
+            true,
+            DisableClearable,
             true
-          >);
+          >)
+        : newValueParsed;
 
-      if (newValue instanceof BranchNode) {
-        if (!props.multiple && value) {
-          inputValueOnBranchSelect.current = "abort";
-        } else {
-          inputValueOnBranchSelect.current = "clear";
-        }
+      setValue(
+        value as TreeSelectValue<
+          T,
+          TBranch,
+          Multiple,
+          DisableClearable,
+          FreeSolo
+        >
+      );
 
-        const [newBranch, direction]: [
-          BranchNode<TBranch> | null,
-          PathDirection
-        ] = newValue === branch ? [newValue.parent, "up"] : [newValue, "down"];
-
-        setBranch(newBranch);
-
-        if (onBranchChange) {
-          onBranchChange(event, newBranch, direction, "select-option");
-        }
-      } else {
-        // If value is freeSolo convert to FreeSoloNode
-        const newValueParsed =
-          typeof newValue === "string"
-            ? new FreeSoloNode(newValue as string, branch)
-            : newValue;
-
-        const value = props.multiple
-          ? (((valueRaw as TValueMultiple).length
-              ? [...(valueRaw as TValueMultiple).slice(0, -1), newValueParsed]
-              : valueRaw) as TreeSelectValue<
-              T,
-              TBranch,
-              true,
-              DisableClearable,
-              true
-            >)
-          : newValueParsed;
-
-        setValue(
+      if (onChange) {
+        onChange(
+          event,
           value as TreeSelectValue<
             T,
             TBranch,
             Multiple,
             DisableClearable,
             FreeSolo
-          >
+          >,
+          reason,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ...(rest as any[])
         );
-
-        if (onChange) {
-          onChange(
-            event,
-            value as TreeSelectValue<
-              T,
-              TBranch,
-              Multiple,
-              DisableClearable,
-              FreeSolo
-            >,
-            reason,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ...(rest as any[])
-          );
-        }
-
-        if (reason === "select-option" && !props.disableCloseOnSelect) {
-          setOpen(false);
-
-          if (onClose) {
-            onClose(event, "select-option");
-          }
-        }
       }
     },
-    [
-      props.multiple,
-      props.disableCloseOnSelect,
-      branch,
-      setBranch,
-      onBranchChange,
-      setValue,
-      onChange,
-      setOpen,
-      onClose,
-      value,
-    ]
+    [props.multiple, branch, setValue, onChange]
   );
 
   const handleInputChange = useCallback<NonNullable<Props["onInputChange"]>>(
-    (event, inputValue, reason) =>
-      setTimeout(() => {
-        // This timeout reverses the call order of onInputChange and onChange
-        // in the underlying Autocomplete.  ONLY run if mounted.
-        if (!isMounted.current) {
-          return;
-        }
+    (...args) => {
+      setInputValue(args[1]);
 
-        if (inputValueOnBranchSelect.current === "abort") {
-          inputValueOnBranchSelect.current = "continue";
-        } else if (inputValueOnBranchSelect.current === "clear") {
-          inputValueOnBranchSelect.current = "continue";
-
-          setInputValue("");
-
-          if (onInputChange) {
-            onInputChange(event, "", reason);
-          }
-        } else {
-          setInputValue(inputValue);
-
-          if (onInputChange) {
-            onInputChange(event, inputValue, reason);
-          }
-        }
-      }, 0),
+      if (onInputChange) {
+        onInputChange(...args);
+      }
+    },
     [onInputChange, setInputValue]
   );
 
   const handleClose = useCallback<NonNullable<Props["onClose"]>>(
-    (event, reason) => {
-      if (reason === "select-option") {
-        return;
-      }
+    (...args) => {
       setOpen(false);
       if (onClose) {
-        onClose(event, reason);
+        onClose(...args);
       }
     },
     [onClose, setOpen]
@@ -816,23 +767,30 @@ export default forwardRef(function TreeSelect<
     [props.loading, optionsProp, branch]
   );
 
-  const renderOption = useCallback<NonNullable<Props["renderOption"]>>(
-    (option, ...rest) => {
-      if (renderOptionProp) {
-        return renderOptionProp(option, ...rest);
-      } else {
-        return (
-          <DefaultOption
-            option={option}
-            curBranch={branch}
-            exitBranchText={exitBranchText}
-            enterBranchText={enterBranchText}
-            getOptionLabel={getOptionLabel}
-          />
-        );
-      }
-    },
-    [renderOptionProp, branch, exitBranchText, getOptionLabel, enterBranchText]
+  const renderOption = useCallback<
+    NonNullable<
+      AutocompleteProps<
+        ValueNode<T, TBranch> | BranchNode<TBranch>,
+        Multiple,
+        DisableClearable,
+        FreeSolo
+      >["renderOption"]
+    >
+  >(
+    (option, state) => (
+      <CaptureOption<T, TBranch, Multiple, DisableClearable, FreeSolo>
+        option={option}
+        state={{
+          ...state,
+          value,
+          branch,
+          enterBranchText,
+          exitBranchText,
+          getOptionLabel,
+        }}
+      />
+    ),
+    [branch, enterBranchText, exitBranchText, getOptionLabel, value]
   );
 
   const renderTags = useCallback<NonNullable<Props["renderTags"]>>(
@@ -870,8 +828,86 @@ export default forwardRef(function TreeSelect<
     [renderTagsProp, getOptionLabel]
   );
 
+  const handleKeyDown = useCallback<React.KeyboardEventHandler<HTMLDivElement>>(
+    (event) => {
+      if (event.which !== 229) {
+        switch (event.key) {
+          case "ArrowLeft":
+            if (highlightedOption && highlightedOption === branch) {
+              event.preventDefault();
+              event.stopPropagation();
+
+              if ((props.multiple && inputValue) || !value) {
+                handleInputChange(event, "", "reset");
+              }
+
+              handleBranchChange(event, branch.parent, "up", "select-option");
+            }
+            break;
+          case "ArrowRight":
+            if (
+              highlightedOption instanceof BranchNode &&
+              highlightedOption !== branch
+            ) {
+              event.preventDefault();
+              event.stopPropagation();
+
+              if ((props.multiple && inputValue) || !value) {
+                handleInputChange(event, "", "reset");
+              }
+
+              handleBranchChange(
+                event,
+                highlightedOption,
+                "down",
+                "select-option"
+              );
+            }
+            break;
+          case "Enter":
+            if (highlightedOption && highlightedOption instanceof BranchNode) {
+              event.preventDefault();
+              event.stopPropagation();
+
+              if ((props.multiple && inputValue) || !value) {
+                handleInputChange(event, "", "reset");
+              }
+
+              const [nextBranch, direction]: [
+                BranchNode<TBranch> | null,
+                PathDirection
+              ] =
+                highlightedOption === branch
+                  ? [highlightedOption.parent, "up"]
+                  : [highlightedOption, "down"];
+
+              handleBranchChange(event, nextBranch, direction, "select-option");
+            }
+
+            break;
+        }
+      }
+    },
+    [
+      branch,
+      handleBranchChange,
+      handleInputChange,
+      highlightedOption,
+      inputValue,
+      props.multiple,
+      value,
+    ]
+  );
+
   const renderInput = useCallback<NonNullable<Props["renderInput"]>>(
     (params) => {
+      const onKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (event) => {
+        handleKeyDown(event);
+        if ("onKeyDown" in params && params.onKeyDown) {
+          params.onKeyDown(event);
+        }
+      };
+
       if (
         props.multiple ||
         !(value as TreeSelectValue<T, TBranch, false, false, true>)?.parent ||
@@ -880,10 +916,11 @@ export default forwardRef(function TreeSelect<
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ) !== (params?.inputProps as any)?.value
       ) {
-        return renderInputProp(params);
+        return renderInputProp({ ...params, onKeyDown });
       } else {
         return renderInputProp({
           ...params,
+          onKeyDown,
           InputProps: mergeInputStartAdornment(
             "prepend",
             <Tooltip
@@ -904,7 +941,7 @@ export default forwardRef(function TreeSelect<
         });
       }
     },
-    [getOptionLabel, props.multiple, renderInputProp, value]
+    [getOptionLabel, handleKeyDown, props.multiple, renderInputProp, value]
   );
 
   const noOptions = useRef<boolean>(!options.length);
@@ -924,52 +961,18 @@ export default forwardRef(function TreeSelect<
     [filterOptionsProp, branch]
   );
 
-  const handleBlur = useCallback<NonNullable<Props["onBlur"]>>(
+  const handleHighlightChange = useCallback<
+    NonNullable<Props["onHighlightChange"]>
+  >(
     (...args) => {
-      const [event] = args;
+      setHighlightedOption(args[1]);
 
-      // When freeSolo is true and autoSelect is false,  an uncommitted free solo
-      // input value stays in the input field on blur, but is not set as a value.
-      // NOTE: This is not the case when autoSelect is true.  This ambiguous state
-      // and behavior is addressed here.  The behavior will be to clear the input.
-      if (props.freeSolo && !props.autoSelect) {
-        if (inputValue.trim()) {
-          if (props.multiple || value === null) {
-            handleInputChange(event, "", "clear");
-          } else {
-            handleInputChange(
-              event,
-              getOptionLabel(
-                value as TreeSelectValue<T, TBranch, false, true, FreeSolo>
-              ),
-              "reset"
-            );
-          }
-        }
-      }
-
-      if (onBlurProp) {
-        onBlurProp(...args);
+      if (onHighlightChangeProp) {
+        onHighlightChangeProp(...args);
       }
     },
-    [
-      props.freeSolo,
-      props.autoSelect,
-      props.multiple,
-      onBlurProp,
-      inputValue,
-      value,
-      handleInputChange,
-      getOptionLabel,
-    ]
+    [onHighlightChangeProp]
   );
-
-  const ListBoxProps = useMemo<NonNullable<Props["ListboxProps"]>>(() => {
-    return {
-      className: `MuiAutocomplete-listbox ${classes.listBox}`,
-      ...(ListboxPropsProp || {}),
-    };
-  }, [ListboxPropsProp, classes.listBox]);
 
   const isRootOptions = !branch;
   const PaperComponent = useMemo(() => {
@@ -998,6 +1001,101 @@ export default forwardRef(function TreeSelect<
     props.loading,
   ]);
 
+  const ListboxComponent = useMemo(() => {
+    return React.forwardRef<
+      HTMLUListElement,
+      React.HTMLAttributes<HTMLUListElement>
+    >(
+      ({ children, ...rest }, ref): JSX.Element => {
+        return (
+          <ListboxComponentProp ref={ref} {...rest}>
+            {React.Children.map(children, (optionLi) => {
+              if (
+                optionLi &&
+                typeof optionLi === "object" &&
+                "props" in optionLi &&
+                optionLi.props.children
+              ) {
+                for (const liContent of React.Children.toArray(
+                  optionLi.props.children
+                )) {
+                  if (
+                    liContent &&
+                    typeof liContent === "object" &&
+                    "props" in liContent
+                  ) {
+                    const {
+                      option,
+                      state,
+                    } = liContent.props as CaptureOptionProps<
+                      T,
+                      TBranch,
+                      Multiple,
+                      DisableClearable,
+                      FreeSolo
+                    >;
+
+                    const renderOptionProps = {
+                      ...optionLi.props,
+                      onClick: (event) => {
+                        if (option instanceof BranchNode) {
+                          const [nextBranch, direction]: [
+                            BranchNode<TBranch> | null,
+                            PathDirection
+                          ] =
+                            option === branch
+                              ? [option.parent, "up"]
+                              : [option, "down"];
+
+                          if (
+                            (props.multiple && state.inputValue) ||
+                            !state.value
+                          ) {
+                            handleInputChange(event, "", "reset");
+                          }
+
+                          handleBranchChange(
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            event as any,
+                            nextBranch,
+                            direction,
+                            "select-option"
+                          );
+                        } else if (optionLi.props.onClick) {
+                          optionLi.props.onClick(event);
+                        }
+                      },
+                    } as Parameters<NonNullable<Props["renderOption"]>>[0];
+
+                    if (renderOptionProp) {
+                      return renderOptionProp(renderOptionProps, option, state);
+                    } else {
+                      return (
+                        <DefaultOption
+                          props={renderOptionProps}
+                          option={option}
+                          state={state}
+                        />
+                      );
+                    }
+                  }
+                }
+              }
+              return optionLi;
+            })}
+          </ListboxComponentProp>
+        );
+      }
+    );
+  }, [
+    ListboxComponentProp,
+    branch,
+    handleBranchChange,
+    handleInputChange,
+    props.multiple,
+    renderOptionProp,
+  ]);
+
   return (
     <Autocomplete
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1011,18 +1109,19 @@ export default forwardRef(function TreeSelect<
       onInputChange={handleInputChange}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       options={options as any}
-      ListboxProps={ListBoxProps}
       getOptionLabel={getOptionLabel}
       renderOption={renderOption}
       renderInput={renderInput}
       open={open}
+      clearOnBlur={clearOnBlurProp ?? (!props.freeSolo || !props.autoSelect)}
       onClose={handleClose}
       onOpen={handleOpen}
       filterOptions={filterOptions}
       PaperComponent={PaperComponent}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       renderTags={renderTags as any}
-      onBlur={handleBlur}
+      onHighlightChange={handleHighlightChange}
+      ListboxComponent={ListboxComponent}
     />
   );
 });
