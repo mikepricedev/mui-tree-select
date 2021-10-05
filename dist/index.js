@@ -460,14 +460,14 @@ exports.default = (0, react_1.forwardRef)(function TreeSelect(props, ref) {
         const filteredOptions = options[0] === branch
             ? [options[0], ...filterOptionsProp(options.slice(1), state)]
             : filterOptionsProp(options, state);
-        if (props.freeSolo && state.inputValue.trim()) {
+        if (props.freeSolo && !props.loading && state.inputValue.trim()) {
             filteredOptions.push(new FreeSoloNode(state.inputValue, branch));
         }
         noOptions.current =
             filteredOptions.length === 0 ||
                 (filteredOptions.length === 1 && options[0] === branch);
         return filteredOptions;
-    }, [branch, filterOptionsProp, props.freeSolo]);
+    }, [branch, filterOptionsProp, props.freeSolo, props.loading]);
     const handleHighlightChange = (0, react_1.useCallback)((...args) => {
         setHighlightedOption(args[1]);
         if (onHighlightChangeProp) {
