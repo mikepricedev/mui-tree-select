@@ -985,7 +985,7 @@ export default forwardRef(function TreeSelect<
           ? [options[0], ...filterOptionsProp(options.slice(1), state)]
           : filterOptionsProp(options, state);
 
-      if (props.freeSolo && state.inputValue.trim()) {
+      if (props.freeSolo && !props.loading && state.inputValue.trim()) {
         filteredOptions.push(new FreeSoloNode(state.inputValue, branch));
       }
 
@@ -995,7 +995,7 @@ export default forwardRef(function TreeSelect<
 
       return filteredOptions;
     },
-    [branch, filterOptionsProp, props.freeSolo]
+    [branch, filterOptionsProp, props.freeSolo, props.loading]
   );
 
   const handleHighlightChange = useCallback<
