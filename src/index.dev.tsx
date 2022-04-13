@@ -1,203 +1,151 @@
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import ReactDOM from "react-dom";
-import TreeSelect, {
-  BranchNode,
-  FreeSoloNode,
-  ValueNode,
-  defaultInput,
-} from "./index";
+import _sampleData from "./sampleData.json";
+import TreeSelect, { TreeSelectProps, FreeSoloNode } from "./index";
+import { TextField } from "@mui/material";
 
-type TBranchOption = { label: string };
+interface City {
+  id: string;
+  name: string;
+}
 
-type TOption = string | BranchNode<TBranchOption>;
+interface State {
+  id: string;
+  name: string;
+  cities: City[];
+}
 
-const generateOptions = (
-  parentBranch: BranchNode<{ label: string }> | null,
-  randomAsync = true
-): TOption[] | Promise<TOption[]> => {
-  const depth = parentBranch
-    ? Number.parseInt(parentBranch.valueOf().label.split(":")[0]) + 1
-    : 0;
+interface Country {
+  id: string;
+  name: string;
+  emoji: string;
+  states: State[];
+}
 
-  const options: TOption[] = [];
+const sampleData = _sampleData as ReadonlyArray<Country>;
 
-  for (let i = 0, len = Math.ceil(Math.random() * 10); i < len; i++) {
-    const option = `${depth}:${i}`;
+class Node {
+  constructor(readonly value: City | State | Country) {}
+  getParent() {
+    const parent = (() => {
+      if ("states" in this.value) {
+        return null;
+      } else if ("cities" in this.value) {
+        return (
+          sampleData.find(({ states }) =>
+            states.some(({ id }) => id === this.value.id)
+          ) || null
+        );
+      } else {
+        for (const { states } of sampleData) {
+          const state = states.find(({ cities }) =>
+            cities.some(({ id }) => id === this.value.id)
+          );
+          if (state) {
+            return state;
+          }
+        }
+        return null;
+      }
+    })();
 
-    options.push(new BranchNode({ label: option }, parentBranch), option);
+    return parent ? new Node(parent) : parent;
+  }
+  getChildren() {
+    if ("states" in this.value) {
+      return this.value.states.map((state) => new Node(state));
+    } else if ("cities" in this.value) {
+      return this.value.cities.map((city) => new Node(city));
+    } else {
+      return null;
+    }
   }
 
-  return randomAsync && Math.random() > 0.5
-    ? new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(options);
-        }, Math.ceil(Math.random() * 1000));
-      })
-    : options;
+  isBranch() {
+    return "states" in this.value || "cities" in this.value;
+  }
+
+  isEqual(to: Node) {
+    return to.value.id === this.value.id;
+  }
+
+  toString() {
+    return this.value.name;
+  }
+}
+
+const syncOrAsync = function <T>(value: T, returnAsync: boolean) {
+  if (returnAsync) {
+    return new Promise<T>((resolve) =>
+      setTimeout(() => resolve(value), Math.random() * 1000)
+    );
+  }
+  return value;
 };
 
-const getOptionLabel = (
-  option:
-    | ValueNode<string, TBranchOption>
-    | BranchNode<TBranchOption>
-    | FreeSoloNode
-): string =>
-  option instanceof BranchNode ? option.valueOf().label : option.toString();
-
-const defaultBranch = BranchNode.createBranchNode([
-  { label: "0:5" },
-  { label: "1:2" },
-]);
+const renderInput: TreeSelectProps<
+  Node,
+  true | false,
+  true | false,
+  true | false
+>["renderInput"] = (params) => <TextField {...params} />;
 
 const Sample: React.FC = () => {
-  const [state, setState] = useState<{
-    single: {
-      value:
-        | ValueNode<string, TBranchOption>
-        | FreeSoloNode<TBranchOption>
-        | null;
-      options: (string | TOption)[];
-      loading: boolean;
-      branch: BranchNode<TBranchOption> | null;
-    };
-    multiple: {
-      value: (ValueNode<string, TBranchOption> | FreeSoloNode<TBranchOption>)[];
-      options: (string | TOption)[];
-      loading: boolean;
-      branch: BranchNode<TBranchOption> | null;
-    };
-  }>({
-    single: {
-      value: null,
-      options: generateOptions(defaultBranch, false) as TOption[],
-      loading: false,
-      branch: defaultBranch,
-    },
-    multiple: {
-      value: [],
-      options: generateOptions(null, false) as TOption[],
-      loading: false,
-      branch: null,
-    },
-  });
+  const [runAsync, setRynAsync] = useState(false);
 
   return (
-    <div style={{ width: 350, padding: 16 }}>
-      <TreeSelect<string, TBranchOption, false, false, true>
-        branch={state.single.branch}
-        onBranchChange={(_, branch) => {
-          const options = generateOptions(branch);
-
-          if (options instanceof Promise) {
-            setState((state) => ({
-              ...state,
-              single: {
-                ...state.single,
-                branch,
-                loading: true,
-              },
-            }));
-            options.then((options) => {
-              setState((state) => ({
-                ...state,
-                single: {
-                  ...state.single,
-                  options,
-                  loading: false,
-                },
-              }));
-            });
-          } else {
-            setState((state) => ({
-              ...state,
-              single: {
-                ...state.single,
-                branch,
-                options,
-                loading: false,
-              },
-            }));
+    <>
+      <div style={{ width: 450 }}>
+        <TreeSelect
+          freeSolo
+          getParent={(node: Node) => syncOrAsync(node.getParent(), runAsync)}
+          getChildren={(node) =>
+            syncOrAsync(
+              node
+                ? node.getChildren()
+                : sampleData.map((country) => new Node(country)),
+              runAsync
+            )
           }
-        }}
-        autoSelect
-        freeSolo
-        options={state.single.options}
-        loading={state.single.loading}
-        getOptionLabel={getOptionLabel}
-        renderInput={useCallback(
-          (params) =>
-            defaultInput({
-              ...params,
-              variant: "outlined",
-              label: "Single",
-            }),
-          []
-        )}
-        value={state.single.value}
-        onChange={useCallback(
-          (_, value) => {
-            setState((state) => ({
-              ...state,
-              single: {
-                ...state.single,
-                value,
-              },
-            }));
-          },
-          [setState]
-        )}
-      />
-      <div style={{ height: "16px" }} />
-      <TreeSelect<string, TBranchOption, true, false, true>
-        onBranchChange={(_, branchOption) => {
-          const options = generateOptions(branchOption);
-
-          if (options instanceof Promise) {
-            setState((state) => ({
-              ...state,
-              multiple: {
-                ...state.multiple,
-                loading: true,
-              },
-            }));
-            options.then((options) => {
-              setState((state) => ({
-                ...state,
-                multiple: {
-                  ...state.multiple,
-                  options,
-                  loading: false,
-                },
-              }));
-            });
-          } else {
-            setState((state) => ({
-              ...state,
-              multiple: {
-                ...state.multiple,
-                options,
-                loading: false,
-              },
-            }));
+          isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
+          isOptionEqualToValue={([option], [value]) => {
+            return value instanceof FreeSoloNode
+              ? false
+              : option.isEqual(value);
+          }}
+          getOptionDisabled={([option, type]) =>
+            type === "downBranch" && !option.getChildren()?.length
           }
-        }}
-        options={state.multiple.options}
-        loading={state.multiple.loading}
-        getOptionLabel={getOptionLabel}
-        freeSolo
-        autoSelect
-        multiple
-        renderInput={useCallback(
-          (params) =>
-            defaultInput({
-              ...params,
-              variant: "outlined",
-              label: "Multiple",
-            }),
-          []
-        )}
-      />
-    </div>
+          renderInput={renderInput}
+        />
+      </div>
+      <div style={{ width: 450 }}>
+        <TreeSelect
+          multiple
+          freeSolo
+          getParent={(node: Node) => syncOrAsync(node.getParent(), runAsync)}
+          getChildren={(node) =>
+            syncOrAsync(
+              node
+                ? node.getChildren()
+                : sampleData.map((country) => new Node(country)),
+              runAsync
+            )
+          }
+          isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
+          isOptionEqualToValue={([option], [value]) => {
+            return value instanceof FreeSoloNode
+              ? option instanceof FreeSoloNode &&
+                  value.toString() === option.toString()
+              : option.isEqual(value);
+          }}
+          getOptionDisabled={([option, type]) =>
+            type === "downBranch" && !option.getChildren()?.length
+          }
+          renderInput={renderInput}
+        />
+      </div>
+    </>
   );
 };
 

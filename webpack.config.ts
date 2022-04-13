@@ -17,9 +17,9 @@ module.exports = (
 
   const plugins: NonNullable<Configuration["plugins"]> = [
     new ForkTsCheckerWebpackPlugin({
-      eslint: {
-        files: "./src/**/*.{ts,tsx,js,jsx}",
-      },
+      // eslint: {
+      //   files: "./src/**/*.{ts,tsx,js,jsx}",
+      // },
     }),
   ];
 
@@ -27,9 +27,13 @@ module.exports = (
     plugins.unshift(
       new HtmlWebpackPlugin({
         title: "MUI Tree Select",
-        template: require("html-webpack-template"),
-        appMountId: "root",
-        devServer: "http://localhost:8080",
+        templateContent: `
+          <html>
+            <body>
+              <div id="root"></div>
+            </body>
+          </html>
+      `,
       })
     );
   }
