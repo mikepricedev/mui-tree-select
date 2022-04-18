@@ -3,6 +3,7 @@ import ReactDOM from "react-dom";
 import _sampleData from "./sampleData.json";
 import TreeSelect, { TreeSelectProps, FreeSoloNode } from "./index";
 import { TextField } from "@mui/material";
+import { DefaultOption, getDefaultOptionProps } from "./TreeSelect";
 
 interface City {
   id: string;
@@ -108,13 +109,13 @@ const Sample: React.FC = () => {
             )
           }
           isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
-          isOptionEqualToValue={([option], [value]) => {
-            return value instanceof FreeSoloNode
+          isOptionEqualToValue={(option, value) => {
+            return option instanceof FreeSoloNode
               ? false
               : option.isEqual(value);
           }}
-          getOptionDisabled={([option, type]) =>
-            type === "downBranch" && !option.getChildren()?.length
+          getOptionDisabled={(option) =>
+            option.isBranch() && !option.getChildren()?.length
           }
           renderInput={renderInput}
         />
@@ -133,15 +134,26 @@ const Sample: React.FC = () => {
             )
           }
           isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
-          isOptionEqualToValue={([option], [value]) => {
-            return value instanceof FreeSoloNode
-              ? option instanceof FreeSoloNode &&
+          isOptionEqualToValue={(option, value) => {
+            return option instanceof FreeSoloNode
+              ? value instanceof FreeSoloNode &&
                   value.toString() === option.toString()
               : option.isEqual(value);
           }}
-          getOptionDisabled={([option, type]) =>
-            type === "downBranch" && !option.getChildren()?.length
+          getOptionDisabled={(option) =>
+            option.isBranch() && !option.getChildren()?.length
           }
+          renderOption={(...args) => (
+            <DefaultOption
+              {...((props, node) => ({
+                ...props,
+                ListItemTextProps: {
+                  ...props.ListItemTextProps,
+                  secondary: node.value.id,
+                },
+              }))(getDefaultOptionProps(...args), args[1])}
+            />
+          )}
           renderInput={renderInput}
         />
       </div>

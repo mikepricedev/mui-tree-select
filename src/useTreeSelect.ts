@@ -6,6 +6,7 @@ import {
   AutocompleteChangeReason,
   AutocompleteChangeDetails,
   AutocompleteInputChangeReason,
+  FilterOptionsState,
 } from "@mui/base";
 import useControlled from "@mui/utils/useControlled";
 import { useCallback, useMemo, useRef } from "react";
@@ -16,12 +17,6 @@ import usePromise from "./usePromise";
  * @ignore
  */
 type SyncOrAsync<T> = T | Promise<T>;
-
-/**
- * @internal
- * @ignore
- */
-type Writable<T> = { -readonly [P in keyof T]: T[P] };
 
 /**
  * @internal
@@ -38,9 +33,9 @@ export type NonNullableUseAutocompleteProp<
   Multiple extends boolean | undefined = undefined,
   DisableClearable extends boolean | undefined = undefined,
   FreeSolo extends boolean | undefined = undefined
-> = NonNullable<
-  UseAutocompleteProps<Node, Multiple, DisableClearable, FreeSolo>[Prop]
->;
+> = Required<
+  UseAutocompleteProps<Node, Multiple, DisableClearable, FreeSolo>
+>[Prop];
 
 /**
  * @internal
@@ -73,112 +68,45 @@ export class FreeSoloNode<Node> extends String {
 export type TreeSelectFreeSoloValueMapping<Node, FreeSolo> =
   FreeSolo extends true ? FreeSoloNode<Node> : never;
 
-/**
- * @internal
- * @ignore
- */
-export type InternalValue<
-  Node,
-  Multiple extends boolean | undefined,
-  DisableClearable extends boolean | undefined,
-  FreeSolo extends boolean | undefined
-> = Multiple extends undefined | false
-  ? DisableClearable extends true
-    ? Readonly<
-        [Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>, ...Node[]]
-      > | null
-    : Readonly<
-        [Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>, ...Node[]]
-      >
-  : Readonly<
-      [Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>, ...Node[]]
-    >;
-
-/**
- * Cannot use the type InternalValue directly due to https://github.com/mui/material-ui/issues/32272#issue-1202300067.
- *
- * This Proxy is used to defeat Array.isArray.
- *
- * @internal
- * @ignore
- */
-const initInternalValue = <
-  Node,
-  Multiple extends boolean | undefined,
-  FreeSolo extends boolean | undefined
->(
-  value: InternalValue<Node, Multiple, false, FreeSolo>
-): InternalValue<Node, Multiple, false, FreeSolo> =>
-  new Proxy(
-    { target: value as InternalValue<Node, Multiple, false, FreeSolo> },
-    {
-      defineProperty({ target }, prop, attributes) {
-        return Reflect.defineProperty(target, prop, attributes);
-      },
-      deleteProperty({ target }, prop) {
-        return Reflect.deleteProperty(target, prop);
-      },
-      get({ target }, prop) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if (typeof target[prop as any] === "function") {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return (...args: any[]) => (target[prop as any] as any)(...args);
-        }
-        return Reflect.get(target, prop, target);
-      },
-      has({ target }, prop) {
-        return Reflect.has(target, prop);
-      },
-      isExtensible({ target }) {
-        return Reflect.isExtensible(target);
-      },
-      ownKeys({ target }) {
-        return Reflect.ownKeys(target);
-      },
-      set({ target }, prop, value) {
-        return Reflect.set(target, prop, value, target);
-      },
-      setPrototypeOf({ target }, prototype) {
-        return Reflect.setPrototypeOf(target, prototype);
-      },
-    }
-  ) as unknown as InternalValue<Node, Multiple, false, FreeSolo>;
-
 export type NodeType = "leaf" | "downBranch" | "upBranch";
 
+export function asyncOrAsyncBlock<G extends Generator>(
+  it: G
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): G extends Generator<any, infer TReturn, any> ? SyncOrAsync<TReturn> : never {
+  return (function getReturn(
+    result: IteratorResult<unknown | Promise<unknown>, unknown>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): SyncOrAsync<any> {
+    if (result.done) {
+      return result.value;
+    } else if (result.value instanceof Promise) {
+      return result.value.then((value) => getReturn(it.next(value)));
+    } else {
+      return getReturn(it.next(result.value));
+    }
+  })(it.next());
+}
+
 /**
- * Option signature for callback `option` parameters.
- *
- * @remarks `path` ascends ancestors of `option`
+ * @internal
+ * @ignore
  */
-export type Option<
+export class InternalOption<
   Node,
-  AppendOption = never,
+  FreeSolo extends boolean | undefined,
   Type extends NodeType = NodeType
-> = Readonly<
-  [option: Node | AppendOption, type: Type, path: ReadonlyArray<Node>]
->;
+> {
+  constructor(
+    readonly node: Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
+    readonly type: Type,
+    readonly path: ReadonlyArray<Node>
+  ) {}
 
-/**
- * Guarantee uniqueness internally with `symbol`s.
- * @internal
- * @ignore
- */
-export type OptionType = typeof VALUE | typeof DOWN_BRANCH | typeof UP_BRANCH;
-
-/**
- * `InternalOption` differs from `Option` to allow for uniqueness internally via and a friendly api externally.
- *
- * @internal
- * @ignore
- */
-export type InternalOption<
-  Node, 
-  AppendOption = never,
-> = Readonly<[
-  option: Node | AppendOption, 
-  type: OptionType
-]>;
+  toString(): string {
+    return String(this.node);
+  }
+}
 
 export type BranchChangeDirection = "up" | "down";
 
@@ -188,21 +116,31 @@ export interface UseTreeSelectProps<
   DisableClearable extends boolean | undefined,
   FreeSolo extends boolean | undefined
 > extends Pick<
-    UseAutocompleteProps<
-      Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
-      Multiple,
-      DisableClearable,
-      false
+      UseAutocompleteProps<
+        Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
+        Multiple,
+        DisableClearable,
+        false
+      >,
+      | "componentName"
+      | "defaultValue"
+      | "getOptionDisabled"
+      | "groupBy"
+      | "inputValue"
+      | "isOptionEqualToValue"
+      | "multiple"
+      | "onChange"
+      | "onClose"
+      | "onHighlightChange"
+      | "onInputChange"
+      | "onOpen"
+      | "open"
+      | "value"
     >,
-    | "componentName"
-    | "defaultValue"
-    | "inputValue"
-    | "multiple"
-    | "onClose"
-    | "onOpen"
-    | "open"
-    | "value"
-  > {
+    Pick<
+      UseAutocompleteProps<Node, Multiple, DisableClearable, false>,
+      "filterOptions"
+    > {
   /**
    * The active **Branch** Node.  This Node's children will be displayed in the select menu.
    */
@@ -214,17 +152,6 @@ export interface UseTreeSelectProps<
   defaultBranch?: Node | null;
 
   /**
-   * A function that determines the filtered options to be rendered on search.
-   */
-  filterOptions?: NonNullableUseAutocompleteProp<
-    "filterOptions",
-    Option<Node, never, Exclude<NodeType, "upBranch">>,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >;
-
-  /**
    * If true, the Autocomplete is free solo, meaning that the user input is not bound to provided options.
    */
   freeSolo?: boolean;
@@ -234,7 +161,24 @@ export interface UseTreeSelectProps<
    *
    * @remarks `branchPath` ascends ancestors.
    */
-  getBranchPathLabel?: (branchPath: ReadonlyArray<Node>) => string;
+  getBranchPathLabel?: (
+    branchPath: ReadonlyArray<
+      Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>
+    >
+  ) => string;
+
+  /**
+   * Used to determine the string value for a given option.
+   * It's used to fill the input (and the list box options if `renderOption` is not provided).
+   *
+   * @remarks Defaults to `(option:Node) => String(option)`; therefor, implementing a `Node.toString` is an alternative to supplying a custom`getOptionLabel`.
+   */
+  getOptionLabel?: UseAutocompleteProps<
+    Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
+    Multiple,
+    DisableClearable,
+    false
+  >["getOptionLabel"];
 
   /**
    * Retrieves the child nodes of `node`.
@@ -249,34 +193,6 @@ export interface UseTreeSelectProps<
   getChildren: (node: Node | null) => SyncOrAsync<Node[] | null | undefined>;
 
   /**
-   * Used to determine the disabled state for a given option.
-   *
-   * @param path Index `0` is the **Parent** Node of `option`.
-   */
-  getOptionDisabled?: (
-    option: Option<Node, never, Exclude<NodeType, "upBranch">>
-  ) => boolean;
-
-  /**
-   * Used to create a unique key for option list render items.
-   */
-  getOptionKey?: (
-    option: Option<Node>,
-    state: {
-      key: string;
-    }
-  ) => string;
-
-  /**
-   * Used to determine the string value for a given option. It's used to fill the input (and the list box options if renderOption is not provided).
-   *
-   * @param path Index `0` is the **Parent** Node of `option`.
-   */
-  getOptionLabel?: (
-    option: Option<Node, TreeSelectFreeSoloValueMapping<Node, FreeSolo>>
-  ) => string;
-
-  /**
    * Retrieves the parent of `node`.
    *
    * @returns **Branch** Node parent of `node` or a nullish value when `node` does not have a parent.
@@ -286,34 +202,11 @@ export interface UseTreeSelectProps<
   getParent: (node: Node) => SyncOrAsync<Node | null | undefined>;
 
   /**
-   * If provided, the options will be grouped under the returned string. The groupBy value is also used as the text for group headings when `renderGroup` is not provided.
-   */
-  groupBy?: (
-    option: Option<Node, never, Exclude<NodeType, "upBranch">>
-  ) => string;
-
-  /**
    * Determines if a select option is a **Branch** or **Leaf** Node.
    *
    * @remarks Overrides default behavior which is to call {@link UseTreeSelectProps.getChildren} and to infer `node` type from the return value.
    */
   isBranch?: (node: Node) => SyncOrAsync<boolean>;
-
-  /**
-   * By default all **Branch** Nodes are not selectable as values, they are only a navigation option.  This behavior can be changed by providing this method.
-   *
-   * @returns When `false`, `branchNode` is a navigation option.  When `true`, `branchNode` can be navigated and/or selected as a value.
-   *
-   */
-  isBranchSelectable?: (branchNode: Node) => SyncOrAsync<boolean>;
-
-  /**
-   *
-   */
-  isOptionEqualToValue?: (
-    option: Option<Node, TreeSelectFreeSoloValueMapping<Node, FreeSolo>>,
-    value: Option<Node, TreeSelectFreeSoloValueMapping<Node, FreeSolo>>
-  ) => boolean;
 
   /**
    * Callback fired when active branch changes.
@@ -327,41 +220,6 @@ export interface UseTreeSelectProps<
   ) => void;
 
   /**
-   *  Callback fired when the value changes.
-   */
-  onChange?: (
-    event: React.SyntheticEvent,
-    value: AutocompleteValue<
-      Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
-      Multiple,
-      DisableClearable,
-      false
-    >,
-    reason: AutocompleteChangeReason,
-    details?: AutocompleteChangeDetails<
-      Option<Node, TreeSelectFreeSoloValueMapping<Node, FreeSolo>, "leaf">
-    >
-  ) => void;
-
-  /**
-   *  Callback fired when the highlight option changes.
-   */
-  onHighlightChange?: (
-    event: React.SyntheticEvent,
-    option: Option<Node> | null,
-    reason: AutocompleteHighlightChangeReason
-  ) => void;
-
-  /**
-   * Callback fired when the input value changes.
-   */
-  onInputChange?: (
-    event: React.SyntheticEvent,
-    value: string,
-    reason: AutocompleteInputChangeReason
-  ) => void;
-
-  /**
    * Error Handler for async return values from:
     - {@link UseTreeSelectProps.getParent}
     - {@link UseTreeSelectProps.getChildren}
@@ -371,140 +229,84 @@ export interface UseTreeSelectProps<
   onError?: (error: Error) => void;
 }
 
-const VALUE: unique symbol = Symbol("VALUE");
-const DOWN_BRANCH: unique symbol = Symbol("DOWN_BRANCH");
-const UP_BRANCH: unique symbol = Symbol("UP_BRANCH");
-
-/**
- * Option Types are unique internally to allow all possible values.
- *
- * @internal
- * @ignore
- */
-export const OptionType = {
-  VALUE,
-  DOWN_BRANCH,
-  UP_BRANCH,
-} as const;
-
-/**
- *
- * @internal
- * @ignore
- */
-export const getNodeTypeFromOptionType = <Type extends NodeType = NodeType>(
-  optionType: OptionType
-): Type => {
-  switch (optionType) {
-    case OptionType.VALUE:
-      return "leaf" as Type;
-    case OptionType.DOWN_BRANCH:
-      return "downBranch" as Type;
-    case OptionType.UP_BRANCH:
-      return "upBranch" as Type;
-  }
-};
-
-const getOptionTypeFromNodeType = (nodeType: NodeType): OptionType => {
-  switch (nodeType) {
-    case "leaf":
-      return OptionType.VALUE;
-    case "downBranch":
-      return OptionType.DOWN_BRANCH;
-    case "upBranch":
-      return OptionType.UP_BRANCH;
-  }
-};
-
-const getOptionBranchPath = <Node>(
-  optionType: OptionType,
-  branchPath: Node[] | ReadonlyArray<Node>
-): ReadonlyArray<Node> =>
-  !branchPath.length || optionType !== OptionType.UP_BRANCH
-    ? branchPath.slice(0)
-    : branchPath.slice(1); // First elem of branchPath IS the up branch
-
-const getOptionFromInternalOptionOrValue = <
+export interface UseTreeSelectReturn<
   Node,
-  FreeSolo extends undefined | boolean,
-  Type extends NodeType = NodeType
->(
-  internalOptOrVal:
-    | InternalOption<Node, TreeSelectFreeSoloValueMapping<Node, FreeSolo>>
-    | InternalValue<Node, true | false, false, FreeSolo>,
-  branchPath: Node[] | ReadonlyArray<Node>
-): Option<Node, TreeSelectFreeSoloValueMapping<Node, FreeSolo>, Type> => {
-  const [option, maybeType, ...restBranchPath] = internalOptOrVal;
+  Multiple extends boolean | undefined,
+  DisableClearable extends boolean | undefined,
+  FreeSolo extends boolean | undefined
+> extends Required<
+      Pick<
+        UseAutocompleteProps<
+          InternalOption<Node, FreeSolo>,
+          Multiple,
+          DisableClearable,
+          FreeSolo
+        >,
+        | "filterOptions"
+        | "getOptionDisabled"
+        | "getOptionLabel"
+        | "inputValue"
+        | "isOptionEqualToValue"
+        | "onChange"
+        | "onClose"
+        | "onHighlightChange"
+        | "onInputChange"
+        | "onOpen"
+        | "open"
+        | "options"
+        | "value"
+      >
+    >,
+    Pick<
+      UseAutocompleteProps<
+        InternalOption<Node, FreeSolo>,
+        Multiple,
+        DisableClearable,
+        FreeSolo
+      >,
+      "groupBy"
+    > {
+  getBranchPathLabel: (
+    to: InternalOption<Node, FreeSolo>,
+    includeTo: boolean
+  ) => string;
+  handleOptionClick: (isOptionBranch: boolean) => void;
+  loadingOptions: boolean;
+}
 
-  switch (maybeType) {
-    case OptionType.DOWN_BRANCH:
-    case OptionType.UP_BRANCH:
-    case OptionType.VALUE:
-      return [
-        option,
-        getNodeTypeFromOptionType(maybeType),
-        getOptionBranchPath(maybeType, branchPath),
-      ] as const;
-    default:
-      return [
-        option,
-        "leaf" as Type,
-        maybeType === undefined
-          ? restBranchPath
-          : [maybeType, ...restBranchPath],
-      ] as const;
-  }
-};
-
-const getPathToNodeIncl = <Node, FreeSolo extends boolean | undefined>(
-  nodes: Writable<InternalValue<Node, true | false, false, FreeSolo>>,
+const getPathToNode = <Node>(
+  toNode: Node | FreeSoloNode<Node>,
   getParent: (node: Node) => SyncOrAsync<Node | null | undefined>
-): SyncOrAsync<InternalValue<Node, true | false, false, FreeSolo>> => {
-  const node = nodes[nodes.length - 1];
+) => {
+  function* it() {
+    const path: Node[] = [];
 
-  let parent = node instanceof FreeSoloNode ? node.parent : getParent(node);
+    let parent =
+      ((yield toNode instanceof FreeSoloNode
+        ? toNode.parent
+        : getParent(toNode)) as Awaited<ReturnType<typeof getParent>>) ?? null;
 
-  while (parent !== null && parent !== undefined) {
-    if (parent instanceof Promise) {
-      return (async () => {
-        const parentNode = await parent;
-        if (parentNode !== null && parentNode !== undefined) {
-          nodes.push(parentNode);
-          return getPathToNodeIncl<Node, FreeSolo>(nodes, getParent);
-        }
-        return nodes;
-      })();
-    } else {
-      nodes.push(parent);
-      parent = getParent(parent);
+    while (parent !== null) {
+      path.push(parent);
+      parent =
+        ((yield getParent(parent)) as Awaited<ReturnType<typeof getParent>>) ??
+        null;
     }
+
+    return path;
   }
 
-  return nodes;
+  return asyncOrAsyncBlock(it());
 };
-
-const defaultFilterOptions =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createFilterOptions<Option<any, never, Exclude<NodeType, "upBranch">>>();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const defaultGetOptionLabel = ([node]: Option<any>): string => String(node);
+const defaultFilterOptions = createFilterOptions<any>();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const defaultGetOptionLabel = (node: any): string => String(node);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const defaultGetOptionDisabled = () => false;
-
-const defaultGetOptionKey = (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [, type]: Option<any>,
-  { key }: { key: string }
-): string => `${key}-${type}`;
-
-const defaultIsOptionEqualToValue = (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [node]: Option<any>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [value]: Option<any>
-): boolean => node === value;
 
 export const useTreeSelect = <
   Node,
@@ -522,13 +324,11 @@ export const useTreeSelect = <
   getChildren,
   getOptionDisabled: getOptionDisabledProp = defaultGetOptionDisabled,
   getOptionLabel: getOptionLabelProp = defaultGetOptionLabel,
-  getOptionKey: getOptionKeyProp = defaultGetOptionKey,
   getParent,
   groupBy: groupByProp,
   inputValue: inputValueProp,
   isBranch: isBranchProp,
-  isBranchSelectable: isBranchSelectableProp,
-  isOptionEqualToValue: isOptionEqualToValueProp = defaultIsOptionEqualToValue,
+  isOptionEqualToValue: isOptionEqualToValueProp,
   multiple,
   onError,
   onBranchChange,
@@ -539,93 +339,17 @@ export const useTreeSelect = <
   onOpen: onOpenProp,
   open: openProp,
   value: valueProp,
-}: UseTreeSelectProps<Node, Multiple, DisableClearable, FreeSolo>): {
-  branchPath: ReadonlyArray<Node>;
-  filterOptions: NonNullableUseAutocompleteProp<
-    "filterOptions",
-    InternalOption<Node>,
-    Multiple,
-    DisableClearable,
-    FreeSolo
+}: UseTreeSelectProps<
+  Node,
+  Multiple,
+  DisableClearable,
+  FreeSolo
+>): UseTreeSelectReturn<Node, Multiple, DisableClearable, FreeSolo> => {
+  type Props = Required<
+    UseTreeSelectProps<Node, Multiple, DisableClearable, FreeSolo>
   >;
-  getBranchPathLabel: (branchPath: ReadonlyArray<Node>) => string;
-  getOptionDisabled: NonNullableUseAutocompleteProp<
-    "getOptionDisabled",
-    InternalOption<Node>,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >;
-  getOptionKey: (
-    option: InternalOption<Node, TreeSelectFreeSoloValueMapping<Node, FreeSolo>>,
-    state: {
-      key: string;
-    }
-  ) => string;
-  getOptionLabel: NonNullableUseAutocompleteProp<
-    "getOptionLabel",
-    InternalOption<Node> | InternalValue<Node, Multiple, false, FreeSolo>,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >;
-  groupBy?: NullableUseAutocompleteProp<
-    "groupBy",
-    InternalOption<Node> | InternalValue<Node, Multiple, false, false>,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >;
-  handleOptionClick: (isOptionBranch: boolean) => void;
-  inputValue: string;
-  isOptionEqualToValue: NonNullableUseAutocompleteProp<
-    "isOptionEqualToValue",
-    InternalOption<Node> | InternalValue<Node, Multiple, false, FreeSolo>,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >;
-  loadingOptions: boolean;
-  onChange: NullableUseAutocompleteProp<
-    "onChange",
-    | InternalOption<Node>
-    | InternalValue<Node, Multiple, DisableClearable, FreeSolo>,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >;
-  onClose: NonNullableUseAutocompleteProp<
-    "onClose",
-    InternalOption<Node>,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >;
-  onHighlightChange: NonNullableUseAutocompleteProp<
-    "onHighlightChange",
-    InternalOption<Node>,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >;
-  onInputChange: NonNullableUseAutocompleteProp<
-    "onInputChange",
-    InternalOption<Node>,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >;
-  onOpen: NonNullableUseAutocompleteProp<
-    "onOpen",
-    InternalOption<Node>,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >;
-  open: boolean;
-  options: ReadonlyArray<InternalOption<Node>>;
-  value: InternalValue<Node, Multiple, DisableClearable, FreeSolo>;
-} => {
+  type Return = UseTreeSelectReturn<Node, Multiple, DisableClearable, FreeSolo>;
+
   const [inputValue, setInputValue] = useControlled({
     controlled: inputValueProp,
     default: "",
@@ -654,134 +378,123 @@ export const useTreeSelect = <
     state: "open",
   });
 
-  const isBranch = useMemo(
+  const isBranch = useMemo<Props["isBranch"]>(
     () =>
       isBranchProp ||
-      ((node: Node) => {
+      ((node) => {
         const result = getChildren(node);
         if (result instanceof Promise) {
-          return (async () => !!(await result))();
+          return result.then((result) => !!result);
         }
         return !!result;
       }),
     [getChildren, isBranchProp]
   );
 
-  const isBranchSelectable = useMemo(
-    () => isBranchSelectableProp || (() => false),
-    [isBranchSelectableProp]
-  );
+  const branchPathArg = useMemo(() => {
+    if ((curBranch ?? null) === null) {
+      return [];
+    }
+    const branchPath = getPathToNode<Node>(curBranch as Node, getParent);
 
-  const branchPathResult = usePromise(
-    useMemo(
-      () =>
-        curBranch === null || curBranch === undefined
-          ? []
-          : getPathToNodeIncl<Node, false>([curBranch], getParent),
-      [curBranch, getParent]
-    ),
-    onError
-  );
+    if (branchPath instanceof Promise) {
+      return branchPath.then((branchPath) => {
+        branchPath.unshift(curBranch as Node);
+        return branchPath;
+      });
+    } else {
+      branchPath.unshift(curBranch as Node);
+      return branchPath;
+    }
+  }, [curBranch, getParent]);
+
+  const branchPathResult = usePromise(branchPathArg, onError);
 
   const optionsResult = usePromise(
     useMemo(() => {
-      const getOptions = (nodes: Node[]) => {
-        type OptCbs = (options: InternalOption<Node>[]) => void;
+      function* getOpts() {
+        const options: InternalOption<Node, FreeSolo>[] = [];
 
-        const parseBranchSelectable = (node: Node): SyncOrAsync<OptCbs> => {
-          const parseResult = (isBranchOptSelectable: boolean) => {
-            if (isBranchOptSelectable) {
-              return (options: InternalOption<Node>[]) =>
-                void options.push(
-                  [node, OptionType.DOWN_BRANCH],
-                  [node, OptionType.VALUE]
-                );
-            } else {
-              return (options: InternalOption<Node>[]) =>
-                void options.push([node, OptionType.DOWN_BRANCH]);
-            }
-          };
+        const [branchPath, children] = (yield (() => {
+          const children = getChildren(curBranch);
 
-          const isBranchOptSelectable = isBranchSelectable(node);
-
-          if (isBranchOptSelectable instanceof Promise) {
-            return isBranchOptSelectable.then((isBranchOptSelectable) =>
-              parseResult(isBranchOptSelectable)
+          if (branchPathArg instanceof Promise || children instanceof Promise) {
+            return Promise.all([branchPathArg, children]).then(
+              ([branchPath, children]) => [branchPath, children || []]
             );
           } else {
-            return parseResult(isBranchOptSelectable);
+            return [branchPathArg, children || []];
           }
-        };
+        })()) as [Node[], Node[]];
 
-        const parseNode = (node: Node): SyncOrAsync<OptCbs> => {
-          const parseResult = (isBranchOpt: boolean) => {
-            if (isBranchOpt) {
-              return parseBranchSelectable(node);
+        if (curBranch ?? null !== null) {
+          options.push(
+            new InternalOption(
+              curBranch as Node,
+              "upBranch",
+              branchPath.slice(1)
+            )
+          );
+        }
+
+        const [childOpts, hasPromise] = children.reduce(
+          (results, childNode) => {
+            const isBranchResult = isBranch(childNode);
+
+            if (isBranchResult instanceof Promise) {
+              results[1] = true;
+              results[0].push(
+                isBranchResult.then(
+                  (isBranch) =>
+                    new InternalOption<Node, FreeSolo>(
+                      childNode,
+                      isBranch ? "downBranch" : "leaf",
+                      branchPath
+                    )
+                )
+              );
             } else {
-              return (options: InternalOption<Node>[]) =>
-                void options.push([node, OptionType.VALUE]);
+              results[0].push(
+                new InternalOption<Node, FreeSolo>(
+                  childNode,
+                  isBranchResult ? "downBranch" : "leaf",
+                  branchPath
+                )
+              );
             }
-          };
 
-          const isBranchOpt = isBranch(node);
-
-          if (isBranchOpt instanceof Promise) {
-            return isBranchOpt.then((isBranchOpt) => parseResult(isBranchOpt));
-          } else {
-            return parseResult(isBranchOpt);
-          }
-        };
-
-        const buildOptions = (
-          optCbs: IterableIterator<SyncOrAsync<OptCbs>>,
-          options: InternalOption<Node>[]
-        ): SyncOrAsync<InternalOption<Node>[]> => {
-          let optCbResult = optCbs.next();
-          while (!optCbResult.done) {
-            const optCb = optCbResult.value;
-            if (optCb instanceof Promise) {
-              return optCb.then((optCb) => {
-                optCb(options);
-                return buildOptions(optCbs, options);
-              });
-            } else {
-              optCb(options);
-            }
-            optCbResult = optCbs.next();
-          }
-
-          options.sort(([, a], [, b]) => {
-            if (a === b) {
-              return 0;
-            } else if (a === OptionType.UP_BRANCH) {
-              return -1;
-            } else if (b === OptionType.UP_BRANCH) {
-              return 1;
-            } else if (a === OptionType.DOWN_BRANCH) {
-              return -1;
-            } else if (b === OptionType.DOWN_BRANCH) {
-              return 1;
-            }
-            return 0; // This should never happen.
-          });
-
-          return options;
-        };
-
-        return buildOptions(
-          nodes.map<SyncOrAsync<OptCbs>>((node) => parseNode(node)).values(),
-          curBranch === null ? [] : [[curBranch, OptionType.UP_BRANCH]]
+            return results;
+          },
+          [[], false] as [
+            childOpts: SyncOrAsync<InternalOption<Node, FreeSolo>>[],
+            hasPromise: boolean
+          ]
         );
-      };
 
-      const nodes = getChildren(curBranch);
+        options.push(
+          ...((hasPromise
+            ? childOpts
+            : yield Promise.all(childOpts)) as InternalOption<Node, FreeSolo>[])
+        );
 
-      if (nodes instanceof Promise) {
-        return nodes.then((nodes) => getOptions(nodes || []));
-      } else {
-        return getOptions(nodes || []);
+        return options.sort(({ type: a }, { type: b }) => {
+          if (a === b) {
+            return 0;
+          } else if (a === "upBranch") {
+            return -1;
+          } else if (b === "upBranch") {
+            return 1;
+          } else if (a === "downBranch") {
+            return -1;
+          } else if (b === "downBranch") {
+            return 1;
+          }
+          return 0; // This should never happen.
+        });
       }
-    }, [isBranch, isBranchSelectable, getChildren, curBranch]),
+
+      return asyncOrAsyncBlock(getOpts());
+    }, [curBranch, getChildren, branchPathArg, isBranch]),
     onError
   );
 
@@ -790,9 +503,7 @@ export const useTreeSelect = <
       if (curValue === null || curValue === undefined) {
         return null;
       } else if (multiple) {
-        const multiValue: SyncOrAsync<
-          InternalValue<Node, true, DisableClearable, FreeSolo>
-        >[] = [];
+        const multiValue: SyncOrAsync<InternalOption<Node, FreeSolo>>[] = [];
 
         let hasPromise = false;
 
@@ -802,363 +513,229 @@ export const useTreeSelect = <
           true,
           false
         >) {
-          const result = getPathToNodeIncl<Node, FreeSolo>([node], getParent);
-          multiValue.push(result);
+          const branchPath = getPathToNode<Node>(node, getParent);
 
-          if (result instanceof Promise) {
+          if (branchPath instanceof Promise) {
             hasPromise = true;
+            multiValue.push(
+              branchPath.then(
+                (branchPath) => new InternalOption(node, "leaf", branchPath)
+              )
+            );
+          } else {
+            multiValue.push(new InternalOption(node, "leaf", branchPath));
           }
         }
 
         if (hasPromise) {
           return Promise.all(multiValue);
         } else {
-          return multiValue as InternalValue<
-            Node,
-            true,
-            DisableClearable,
-            FreeSolo
-          >[];
+          return multiValue as InternalOption<Node, FreeSolo>[];
         }
       } else {
-        return getPathToNodeIncl<Node, FreeSolo>(
-          [curValue as Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>],
-          getParent
-        );
+        const branchPath = getPathToNode<Node>(curValue as Node, getParent);
+        return branchPath instanceof Promise
+          ? branchPath.then(
+              (branchPath) =>
+                new InternalOption<Node, FreeSolo>(
+                  curValue as Node,
+                  "leaf",
+                  branchPath
+                )
+            )
+          : new InternalOption<Node, FreeSolo>(
+              curValue as Node,
+              "leaf",
+              branchPath
+            );
       }
     }, [curValue, getParent, multiple]),
     onError
   );
 
   const value = useMemo(() => {
-    if (valueResult.data !== undefined) {
-      if (valueResult.data === null) {
-        return null;
-      } else if (multiple) {
-        return (
-          valueResult.data as InternalValue<
-            Node,
+    if (multiple) {
+      return (
+        valueResult.data ||
+        (
+          curValue as AutocompleteValue<
+            Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
             true,
             DisableClearable,
-            FreeSolo
-          >[]
-        ).map((value) => initInternalValue(value));
-      } else {
-        return initInternalValue<Node, false, FreeSolo>(
-          valueResult.data as InternalValue<Node, false, false, FreeSolo>
-        );
-      }
-    } else if (multiple) {
-      return (
-        curValue as AutocompleteValue<
-          Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
-          true,
-          DisableClearable,
-          false
-        >
-      ).map((value) => initInternalValue([value]));
-    } else if (curValue ?? null === null) {
-      return null;
+            false
+          >
+        ).map((value) => new InternalOption(value, "leaf", []))
+      );
     } else {
-      return initInternalValue([curValue]);
+      valueResult.data ??
+        ((curValue ?? null) === null
+          ? null
+          : new InternalOption(
+              curValue as Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
+              "leaf",
+              []
+            ));
     }
-  }, [curValue, multiple, valueResult.data]) as InternalValue<
-    Node,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >;
+  }, [curValue, multiple, valueResult.data]);
 
-  const getOptionDisabled = useCallback<
-    NonNullableUseAutocompleteProp<
-      "getOptionDisabled",
-      InternalOption<Node>,
-      Multiple,
-      DisableClearable,
-      FreeSolo
-    >
-  >(
-    ([option, type]) => {
-      if (type === OptionType.UP_BRANCH) {
+  const getOptionDisabled = useCallback<Return["getOptionDisabled"]>(
+    ({ node, type }) => {
+      if (type === "upBranch" || node instanceof FreeSoloNode) {
         return false;
       }
-      return getOptionDisabledProp([
-        option,
-        getNodeTypeFromOptionType(type),
-        branchPathResult.data || [],
-      ]);
+      return getOptionDisabledProp(node);
     },
-    [branchPathResult.data, getOptionDisabledProp]
+    [getOptionDisabledProp]
   );
 
-  const getOptionLabel = useCallback<
-    NonNullableUseAutocompleteProp<
-      "getOptionLabel",
-      InternalOption<Node> | InternalValue<Node, Multiple, false, FreeSolo>,
-      Multiple,
-      DisableClearable,
-      FreeSolo
-    >
-  >(
-    (internalOptOrVal) => {
-      return getOptionLabelProp(
-        getOptionFromInternalOptionOrValue<Node, FreeSolo>(
-          internalOptOrVal,
-          branchPathResult.data || []
-        )
-      );
-    },
-    [branchPathResult.data, getOptionLabelProp]
+  const getOptionLabel = useCallback<Return["getOptionLabel"]>(
+    ({ node }) => getOptionLabelProp(node),
+    [getOptionLabelProp]
   );
 
-  const getBranchPathLabel = useMemo<
-    (branchPath: ReadonlyArray<Node>) => string
-  >(
-    () =>
-      getBranchPathLabelProp
-        ? getBranchPathLabelProp
-        : (branchPath) => {
-            if (!branchPath.length) {
-              return "";
-            }
-
-            const [first, ...rest] = branchPath;
-
-            return rest.reduce((label, node) => {
-              return `${getOptionLabel([
-                node,
-                OptionType.UP_BRANCH,
-              ])} > ${label}`;
-            }, getOptionLabel([first, OptionType.UP_BRANCH]));
-          },
-    [getBranchPathLabelProp, getOptionLabel]
-  );
-
-  const getOptionKey = useCallback<
-    (
-      option: InternalOption<Node>,
-      state: {
-        key: string;
-      }
-    ) => string
-  >(
-    (option, state) =>
-      getOptionKeyProp(
-        getOptionFromInternalOptionOrValue<Node, false>(
-          option,
-          branchPathResult.data || []
-        ),
-        {
-          ...state,
+  const getBranchPathLabel = useCallback<Return["getBranchPathLabel"]>(
+    (to, includeTo) => {
+      if (getBranchPathLabelProp) {
+        return getBranchPathLabelProp(
+          includeTo ? [to.node, ...to.path] : to.path
+        );
+      } else {
+        if (!to.path.length && !includeTo) {
+          return "";
         }
-      ),
-    [branchPathResult.data, getOptionKeyProp]
+
+        const [first, rest] = (() => {
+          if (includeTo) {
+            return [to.node, to.path] as const;
+          }
+          return [to.path[0], to.path.slice(1)] as const;
+        })();
+
+        return rest.reduce((label, node) => {
+          return `${getOptionLabelProp(node)} > ${label}`;
+        }, getOptionLabelProp(first));
+      }
+    },
+    [getBranchPathLabelProp, getOptionLabelProp]
   );
 
-  const groupBy = useMemo<
-    NullableUseAutocompleteProp<
-      "groupBy",
-      InternalOption<Node> | InternalValue<Node, Multiple, false, false>,
-      Multiple,
-      DisableClearable,
-      FreeSolo
-    >
-  >(() => {
+  const groupBy = useMemo<Return["groupBy"]>(() => {
     if (groupByProp) {
-      return (option) => {
-        if (option[1] === OptionType.UP_BRANCH) {
+      return ({ node, type }) => {
+        if (type === "upBranch") {
           return "";
         } else {
-          return groupByProp(
-            getOptionFromInternalOptionOrValue<
-              Node,
-              false,
-              Exclude<NodeType, "upBranch">
-            >(option, branchPathResult.data || [])
-          );
+          return groupByProp(node);
         }
       };
     }
-  }, [branchPathResult.data, groupByProp]);
+  }, [groupByProp]);
 
-  const filterOptions = useCallback<
-    NonNullableUseAutocompleteProp<
-      "filterOptions",
-      InternalOption<Node>,
-      Multiple,
-      DisableClearable,
-      FreeSolo
-    >
-  >(
-    (internalOptions, state) => {
-      const [upBranch, optionsMap, options] = (() => {
-        let upBranch: InternalOption<Node> | null = null;
-        const options: Option<Node, never, Exclude<NodeType, "upBranch">>[] =
-          [];
-        const optionsMap = new Map(
-          internalOptions.reduce((optionTups, internalOption) => {
-            const [option, type] = internalOption;
+  const filterOptions = useCallback<Return["filterOptions"]>(
+    (options, state) => {
+      const [upBranch, optionsMap, freeSoloOptions] = options.reduce(
+        (result, option) => {
+          if (option.type === "upBranch") {
+            result[0] = option;
+          } else if (option.node instanceof FreeSoloNode) {
+            result[2].push(option);
+          } else {
+            result[1].set(option.node, option);
+          }
 
-            if (type === OptionType.UP_BRANCH) {
-              upBranch = internalOption;
-            } else {
-              const optionKey = [
-                option,
-                getNodeTypeFromOptionType(type) as Exclude<
-                  NodeType,
-                  "upBranch"
-                >,
-                getOptionBranchPath(type, branchPathResult.data || []),
-              ] as const;
-              options.push(optionKey);
-              optionTups.push([optionKey, internalOption]);
-            }
+          return result;
+        },
+        [null, new Map(), []] as [
+          InternalOption<Node, FreeSolo, NodeType> | null,
+          Map<Node, InternalOption<Node, FreeSolo, NodeType>>,
+          InternalOption<Node, FreeSolo, NodeType>[]
+        ]
+      );
 
-            return optionTups;
-          }, [] as [Option<Node>, InternalOption<Node>][])
-        );
-        return [upBranch, optionsMap, options] as [
-          InternalOption<Node> | null,
-          Map<Option<Node>, InternalOption<Node>>,
-          Option<Node, never, Exclude<NodeType, "upBranch">>[]
-        ];
-      })();
-
-      // Do NOT filter when input is value.
-      if (
-        !multiple &&
-        value !== null &&
-        getOptionLabel(
-          value as InternalValue<Node, Multiple, false, FreeSolo>
-        ) === state.inputValue
-      ) {
-        return internalOptions;
-      }
-
-      const filteredOptions = filterOptionsProp(options, {
+      const filteredOptions = filterOptionsProp([...optionsMap.keys()], {
         ...state,
         getOptionLabel: getOptionLabelProp,
-      });
+      }).map((node) => optionsMap.get(node)) as InternalOption<
+        Node,
+        FreeSolo,
+        NodeType
+      >[];
 
-      const filtererOptionsMapCb = (
-        option: Option<Node>
-      ): InternalOption<Node> => {
-        const internalOption = optionsMap.get(option);
-
-        if (internalOption) {
-          return internalOption;
-        }
-
-        for (const optionKey of optionsMap.keys()) {
-          if (isOptionEqualToValueProp(option, optionKey)) {
-            return optionsMap.get(optionKey) as InternalOption<Node>;
-          }
-        }
-
-        return [option[0], getOptionTypeFromNodeType(option[1])];
-      };
-
-      return upBranch
-        ? [upBranch, ...filteredOptions.map(filtererOptionsMapCb)]
-        : filteredOptions.map(filtererOptionsMapCb);
+      return upBranch === null
+        ? [...filteredOptions, ...freeSoloOptions]
+        : [upBranch, ...filteredOptions, ...freeSoloOptions];
     },
-    [
-      branchPathResult.data,
-      filterOptionsProp,
-      getOptionLabel,
-      getOptionLabelProp,
-      isOptionEqualToValueProp,
-      multiple,
-      value,
-    ]
+    [filterOptionsProp, getOptionLabelProp]
   );
 
-  const isOptionEqualToValue = useCallback<
-    NonNullableUseAutocompleteProp<
-      "isOptionEqualToValue",
-      | InternalOption<Node>
-      | InternalValue<Node, DisableClearable, false, FreeSolo>,
-      Multiple,
-      DisableClearable,
-      FreeSolo
-    >
-  >(
+  const isOptionEqualToValue = useCallback<Return["isOptionEqualToValue"]>(
     (option, value) => {
+      if (
+        option.type === "upBranch" ||
+        option.type === "downBranch" ||
+        value.type === "upBranch" ||
+        value.type === "downBranch"
+      ) {
+        return false;
+      }
 
       /**
        * Handle this case:
        * Add freeSolo call to selectNewValue and `multiple === true`
        * https://github.com/mui/material-ui/blob/f8520c409c6682a75e117947c9104a73e30de5c7/packages/mui-base/src/AutocompleteUnstyled/useAutocomplete.js#L622
        */
-       
+      const optionNode =
+        multiple && freeSolo && typeof option === "string"
+          ? (new FreeSoloNode(
+              option as string,
+              curBranch
+            ) as TreeSelectFreeSoloValueMapping<Node, FreeSolo>)
+          : option.node;
 
-      const opt = multiple && freeSolo && typeof option === "string" ?
-      getOptionFromInternalOptionOrValue(new FreeSoloNode(
-        option as string,
-        curBranch
-      ), branchPathResult.data || [])
-
-      return isOptionEqualToValueProp(
-        (([option, type]) =>
-          [
-            option,
-            getNodeTypeFromOptionType(type),
-            getOptionBranchPath(type, branchPathResult.data || []),
-          ] as const)(option as InternalOption<Node>),
-          
-          getOptionFromInternalOptionOrValue(value, branchPathResult.data || [])
-      );
-    },
-    [branchPathResult.data, freeSolo, isOptionEqualToValueProp, multiple]
-  );
-
-  const onHighlightChange = useCallback<
-    NonNullableUseAutocompleteProp<
-      "onHighlightChange",
-      InternalOption<Node>,
-      Multiple,
-      DisableClearable,
-      FreeSolo
-    >
-  >(
-    (event, option, reason) => {
-      const [, type] = option || [];
-
-      isSelectedOptionBranch.current =
-        type === OptionType.DOWN_BRANCH || type === OptionType.UP_BRANCH;
-
-      if (onHighlightChangeProp) {
-        onHighlightChangeProp(
-          event,
-          option
-            ? (([option, type]) => [
-                option,
-                getNodeTypeFromOptionType(type),
-                getOptionBranchPath(type, branchPathResult.data || []),
-              ])(option)
-            : option,
-          reason
+      if (isOptionEqualToValueProp) {
+        return isOptionEqualToValueProp(optionNode, value.node);
+      } else if (optionNode instanceof FreeSoloNode) {
+        if (value.node instanceof FreeSoloNode) {
+          return (
+            value.node.toString() === optionNode.toString() &&
+            optionNode.parent === value.node.parent
+          );
+        }
+        return false;
+      } else if (value.node instanceof FreeSoloNode) {
+        return false;
+      } else {
+        return (
+          option.node === value.node &&
+          option.path.length === value.path.length &&
+          option.path.every((node, index) => node === value.path[index])
         );
       }
     },
-    [branchPathResult.data, onHighlightChangeProp]
+    [curBranch, freeSolo, isOptionEqualToValueProp, multiple]
   );
 
   const isSelectedOptionBranch = useRef(false);
+
+  const onHighlightChange = useCallback<Return["onHighlightChange"]>(
+    (event, option, reason) => {
+      const { node, type } = option || {};
+
+      isSelectedOptionBranch.current =
+        type === "downBranch" || type === "upBranch";
+
+      if (onHighlightChangeProp) {
+        onHighlightChangeProp(event, node ?? null, reason);
+      }
+    },
+    [onHighlightChangeProp]
+  );
 
   const handleOptionClick = useCallback((isOptionBranch: boolean) => {
     isSelectedOptionBranch.current = isOptionBranch;
   }, []);
 
-  const onInputChange = useCallback<
-    NonNullableUseAutocompleteProp<
-      "onInputChange",
-      InternalOption<Node>,
-      Multiple,
-      DisableClearable,
-      FreeSolo
-    >
-  >(
+  const onInputChange = useCallback<Return["onInputChange"]>(
     (...args) => {
       const [, , reason] = args;
       if (isSelectedOptionBranch.current && reason === "reset") {
@@ -1166,7 +743,7 @@ export const useTreeSelect = <
           args[1] = "";
         } else {
           args[1] = getOptionLabel(
-            value as InternalValue<Node, Multiple, false, FreeSolo>
+            value as InternalOption<Node, FreeSolo, NodeType>
           );
         }
       }
@@ -1182,33 +759,23 @@ export const useTreeSelect = <
     [getOptionLabel, multiple, onInputChangeProp, setInputValue, value]
   );
 
-  const onChange = useMemo<
-    NonNullableUseAutocompleteProp<
-      "onChange",
-      | InternalOption<Node>
-      | InternalValue<Node, Multiple, DisableClearable, FreeSolo>,
-      Multiple,
-      DisableClearable,
-      FreeSolo
-    >
-  >(() => {
+  const onChange = useMemo<Return["onChange"]>(() => {
     const handleBranchChange = (
       event: React.SyntheticEvent<Element, Event>,
-      node: Node,
-      type: OptionType
+      option: InternalOption<Node, FreeSolo>
     ): boolean => {
-      if (type !== OptionType.VALUE) {
-        const isUpBranch = type === OptionType.UP_BRANCH;
+      const isUpBranch = option.type === "upBranch";
+
+      if (isUpBranch || option.type === "downBranch") {
+        const node = isUpBranch
+          ? option.path[0] ?? null
+          : (option.node as Node);
 
         if (onBranchChange) {
           onBranchChange(event, node, isUpBranch ? "up" : "down");
         }
 
-        if (isUpBranch) {
-          setBranch((branchPathResult.data || [])[1] ?? null);
-        } else {
-          setBranch(node);
-        }
+        setBranch(node);
 
         return true;
       }
@@ -1223,16 +790,7 @@ export const useTreeSelect = <
      * @ignore
      * */
     const handleChange = (
-      args: Parameters<
-        NonNullableUseAutocompleteProp<
-          "onChange",
-          | InternalOption<Node>
-          | InternalValue<Node, Multiple, DisableClearable, FreeSolo>,
-          Multiple,
-          DisableClearable,
-          FreeSolo
-        >
-      >,
+      args: Parameters<Return["onChange"]>,
       reasonIsBlur: boolean
     ): void => {
       type Value = AutocompleteValue<
@@ -1250,25 +808,21 @@ export const useTreeSelect = <
             const [, rawValues, , details] = args as Parameters<
               NonNullableUseAutocompleteProp<
                 "onChange",
-                InternalOption<Node> | InternalValue<Node, false, true, false>,
+                InternalOption<Node, FreeSolo>,
                 true,
                 DisableClearable,
                 false
               >
             >;
 
-            const [[node, type]] = rawValues.slice(-1) as [
-              InternalOption<Node> //
-            ];
+            const [newValue] = rawValues.slice(-1);
+
+            const values = rawValues.map(({ node }) => node);
 
             // Selected Branch
-            if (handleBranchChange(event, node, type)) {
+            if (handleBranchChange(event, newValue)) {
               break;
             }
-
-            const value = (
-              rawValues as InternalValue<Node, true, true, false>[]
-            ).map(([value]) => value);
 
             if (onChangeProp) {
               (
@@ -1277,32 +831,23 @@ export const useTreeSelect = <
                     Node,
                     true,
                     DisableClearable,
-                    false
+                    FreeSolo
                   >["onChange"]
                 >
               )(
                 event,
-                value,
+                values,
                 reasonIsBlur ? "blur" : reason,
                 details
                   ? {
                       ...details,
-                      option: getOptionFromInternalOptionOrValue<
-                        Node,
-                        false,
-                        "leaf"
-                      >(
-                        details.option as
-                          | InternalOption<Node>
-                          | InternalValue<Node, Multiple, false, false>,
-                        branchPathResult.data || []
-                      ),
+                      option: newValue.node,
                     }
                   : details
               );
             }
 
-            setValue(value as Value);
+            setValue(values as Value);
 
             break;
           }
@@ -1311,7 +856,7 @@ export const useTreeSelect = <
             const [, [...rawValues], , details] = args as Parameters<
               NonNullableUseAutocompleteProp<
                 "onChange",
-                InternalOption<Node> | InternalValue<Node, false, true, true>,
+                InternalOption<Node, FreeSolo>,
                 true,
                 DisableClearable,
                 true
@@ -1319,14 +864,14 @@ export const useTreeSelect = <
             >;
 
             const [freeSoloValue] = rawValues.splice(-1) as [string];
-
-            const value = (
-              rawValues as InternalValue<Node, true, true, true>[]
-            ).map(([value]) => value);
-
             const freeSoloNode = new FreeSoloNode(freeSoloValue, curBranch);
 
-            value.push(freeSoloNode);
+            const values = [
+              ...(rawValues as InternalOption<Node, FreeSolo, NodeType>[]).map(
+                ({ node }) => node
+              ),
+              freeSoloNode,
+            ];
 
             if (onChangeProp) {
               (
@@ -1340,21 +885,18 @@ export const useTreeSelect = <
                 >
               )(
                 event,
-                value,
+                values,
                 reasonIsBlur ? "blur" : reason,
                 details
                   ? {
                       ...details,
-                      option: getOptionFromInternalOptionOrValue(
-                        [freeSoloNode, ...(branchPathResult.data || [])],
-                        branchPathResult.data || []
-                      ),
+                      option: freeSoloNode,
                     }
                   : details
               );
             }
 
-            setValue(value as Value);
+            setValue(values as Value);
 
             break;
           }
@@ -1362,7 +904,7 @@ export const useTreeSelect = <
             const [, rawValues, , details] = args as Parameters<
               NonNullableUseAutocompleteProp<
                 "onChange",
-                InternalOption<Node> | InternalValue<Node, true, false, false>,
+                InternalOption<Node, FreeSolo>,
                 true,
                 DisableClearable,
                 FreeSolo
@@ -1388,16 +930,14 @@ export const useTreeSelect = <
             const [, rawValues, , details] = args as Parameters<
               NonNullableUseAutocompleteProp<
                 "onChange",
-                InternalValue<Node, false, true, FreeSolo>,
+                InternalOption<Node, FreeSolo>,
                 true,
                 DisableClearable,
-                FreeSolo
+                false
               >
             >;
 
-            const value = (
-              rawValues as InternalValue<Node, true, true, FreeSolo>[]
-            ).map(([value]) => value);
+            const values = rawValues.map(({ node }) => node);
 
             if (onChangeProp) {
               (
@@ -1411,27 +951,18 @@ export const useTreeSelect = <
                 >
               )(
                 event,
-                value,
+                values,
                 reason,
                 details
                   ? {
                       ...details,
-                      option: getOptionFromInternalOptionOrValue<
-                        Node,
-                        FreeSolo,
-                        "leaf"
-                      >(
-                        details.option as
-                          | InternalOption<Node>
-                          | InternalValue<Node, Multiple, false, FreeSolo>,
-                        []
-                      ),
+                      option: details.option.node,
                     }
                   : details
               );
             }
 
-            setValue(value as Value);
+            setValue(values as Value);
 
             break;
           }
@@ -1439,46 +970,40 @@ export const useTreeSelect = <
       } else {
         switch (reason) {
           case "selectOption": {
-            const [, option, , details] = args as Parameters<
+            const [, value, , details] = args as Parameters<
               NonNullableUseAutocompleteProp<
                 "onChange",
-                InternalOption<Node>,
+                InternalOption<Node, FreeSolo>,
                 false,
                 true,
                 false
               >
             >;
 
-            const [node, type] = option;
-
             // Selected Branch
-            if (handleBranchChange(event, node, type)) {
+            if (handleBranchChange(event, value)) {
               break;
             }
 
             if (onChangeProp) {
               (
                 onChangeProp as NonNullable<
-                  UseTreeSelectProps<Node, false, false, false>["onChange"]
+                  UseTreeSelectProps<Node, false, false, FreeSolo>["onChange"]
                 >
               )(
                 event,
-                node,
+                value.node,
                 reasonIsBlur ? "blur" : reason,
                 details
                   ? {
                       ...details,
-                      option: getOptionFromInternalOptionOrValue<
-                        Node,
-                        false,
-                        "leaf"
-                      >(details.option, branchPathResult.data || []),
+                      option: value.node,
                     }
                   : details
               );
             }
 
-            setValue(node as Value);
+            setValue(value.node as Value);
 
             break;
           }
@@ -1486,7 +1011,7 @@ export const useTreeSelect = <
             const [, freeSoloValue, , details] = args as Parameters<
               NonNullableUseAutocompleteProp<
                 "onChange",
-                InternalOption<Node>,
+                InternalOption<Node, true>,
                 false,
                 DisableClearable,
                 true
@@ -1515,10 +1040,7 @@ export const useTreeSelect = <
                 details
                   ? {
                       ...details,
-                      option: getOptionFromInternalOptionOrValue(
-                        [freeSoloNode, ...(branchPathResult.data || [])],
-                        branchPathResult.data || []
-                      ),
+                      option: freeSoloNode,
                     }
                   : details
               );
@@ -1532,7 +1054,7 @@ export const useTreeSelect = <
             const [, newValue, , details] = args as Parameters<
               NonNullableUseAutocompleteProp<
                 "onChange",
-                InternalOption<Node>,
+                InternalOption<Node, FreeSolo>,
                 false,
                 DisableClearable,
                 true
@@ -1555,7 +1077,7 @@ export const useTreeSelect = <
             const [, , , details] = args as Parameters<
               NonNullableUseAutocompleteProp<
                 "onChange",
-                InternalValue<Node, false, false, FreeSolo>,
+                InternalOption<Node, FreeSolo>,
                 false,
                 DisableClearable,
                 FreeSolo
@@ -1574,15 +1096,7 @@ export const useTreeSelect = <
                 details
                   ? {
                       ...details,
-                      option: getOptionFromInternalOptionOrValue(
-                        details.option as InternalValue<
-                          Node,
-                          false,
-                          false,
-                          FreeSolo
-                        >,
-                        branchPathResult.data || []
-                      ),
+                      option: details.option.node,
                     }
                   : details
               );
@@ -1597,20 +1111,12 @@ export const useTreeSelect = <
     };
 
     return (...args): void => handleChange(args, false);
-  }, [
-    branchPathResult.data,
-    curBranch,
-    multiple,
-    onBranchChange,
-    onChangeProp,
-    setBranch,
-    setValue,
-  ]);
+  }, [curBranch, multiple, onBranchChange, onChangeProp, setBranch, setValue]);
 
   const onClose = useCallback<
     NonNullableUseAutocompleteProp<
       "onClose",
-      InternalOption<Node>,
+      InternalOption<Node, FreeSolo>,
       Multiple,
       DisableClearable,
       FreeSolo
@@ -1635,7 +1141,7 @@ export const useTreeSelect = <
   const onOpen = useCallback<
     NonNullableUseAutocompleteProp<
       "onOpen",
-      InternalOption<Node>,
+      InternalOption<Node, FreeSolo>,
       Multiple,
       DisableClearable,
       FreeSolo
@@ -1652,11 +1158,9 @@ export const useTreeSelect = <
   );
 
   return {
-    branchPath: branchPathResult.data || [],
     filterOptions,
     getBranchPathLabel,
     getOptionDisabled,
-    getOptionKey,
     getOptionLabel,
     groupBy,
     handleOptionClick,
@@ -1670,7 +1174,7 @@ export const useTreeSelect = <
     onOpen,
     open,
     options: optionsResult.data || [],
-    value,
+    value: value as Return["value"],
   };
 };
 

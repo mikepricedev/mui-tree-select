@@ -2,24 +2,24 @@ import React, { useCallback, useMemo } from "react";
 import {
   Autocomplete,
   AutocompleteProps,
-  AutocompleteRenderGetTagProps,
-  AutocompleteRenderOptionState,
   ListItemButton,
   ListItemIcon,
   ListItemText,
   Tooltip,
+  TooltipProps,
   Chip,
+  AutocompleteRenderOptionState,
+  ListItemButtonProps,
+  ListItemTextProps,
 } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 
 import useTreeSelect, {
   UseTreeSelectProps,
-  Option,
   TreeSelectFreeSoloValueMapping,
   InternalOption,
-  OptionType,
-  InternalValue,
+  NodeType,
 } from "./useTreeSelect";
 
 type NonNullableAutocompleteProp<
@@ -33,9 +33,9 @@ type NonNullableAutocompleteProp<
   Multiple extends boolean | undefined = undefined,
   DisableClearable extends boolean | undefined = undefined,
   FreeSolo extends boolean | undefined = undefined
-> = NonNullable<
-  AutocompleteProps<Node, Multiple, DisableClearable, FreeSolo>[Prop]
->;
+> = Required<
+  AutocompleteProps<Node, Multiple, DisableClearable, FreeSolo>
+>[Prop];
 
 type NullableAutocompleteProp<
   Prop extends keyof AutocompleteProps<
@@ -50,6 +50,205 @@ type NullableAutocompleteProp<
   FreeSolo extends boolean | undefined = undefined
 > = AutocompleteProps<Node, Multiple, DisableClearable, FreeSolo>[Prop];
 
+interface BaseDefaultOptionsProps
+  extends Omit<ListItemButtonProps<"li">, "children"> {
+  ListItemTextProps: ListItemTextProps;
+  TooltipProps?: Omit<TooltipProps, "children" | "title">;
+}
+
+export interface UpBranchDefaultOptionsProps<
+  Type extends Extract<NodeType, "upBranch">
+> extends BaseDefaultOptionsProps {
+  exitText: string;
+  branchPathLabel: string;
+  nodeType: Type;
+}
+
+export interface DownBranchDefaultOptionsProps<
+  Type extends Extract<NodeType, "downBranch">
+> extends BaseDefaultOptionsProps {
+  enterText: string;
+  nodeType: Type;
+}
+
+export interface LeafDefaultOptionsProps<Type extends Extract<NodeType, "leaf">>
+  extends BaseDefaultOptionsProps {
+  nodeType: Type;
+}
+
+/**
+ * Default Option Component.
+ */
+export function DefaultOption<Type extends NodeType>(
+  props: Type extends "upBranch"
+    ? UpBranchDefaultOptionsProps<Type>
+    : Type extends "downBranch"
+    ? DownBranchDefaultOptionsProps<Type>
+    : Type extends "leaf"
+    ? LeafDefaultOptionsProps<Type>
+    : never
+) {
+  const {
+    listItemButtonProps,
+    listItemTextProps,
+    tooltipProps,
+    enterText = "",
+    exitText = "",
+    branchPathLabel = "",
+    nodeType,
+  } = (() => {
+    switch (props.nodeType) {
+      case "leaf": {
+        const {
+          nodeType,
+          ListItemTextProps: listItemTextProps,
+          TooltipProps: tooltipProps,
+          ...listItemButtonProps
+        } = props;
+
+        return {
+          listItemButtonProps,
+          listItemTextProps,
+          tooltipProps,
+          nodeType,
+        };
+      }
+      case "downBranch": {
+        const {
+          nodeType,
+          ListItemTextProps: listItemTextProps,
+          TooltipProps: tooltipProps,
+          enterText,
+          ...listItemButtonProps
+        } = props;
+
+        return {
+          listItemButtonProps,
+          listItemTextProps,
+          tooltipProps,
+          enterText,
+          nodeType,
+        };
+      }
+      case "upBranch": {
+        const {
+          nodeType,
+          ListItemTextProps: listItemTextProps,
+          TooltipProps: tooltipProps,
+          branchPathLabel,
+          exitText,
+          ...listItemButtonProps
+        } = props;
+
+        return {
+          listItemButtonProps,
+          listItemTextProps,
+          tooltipProps,
+          exitText,
+          branchPathLabel,
+          nodeType,
+        };
+      }
+    }
+  })();
+
+  return (
+    <ListItemButton {...listItemButtonProps} component="li" dense>
+      {nodeType === "upBranch" ? (
+        <>
+          <Tooltip {...tooltipProps} title={exitText}>
+            <ListItemIcon>
+              <ChevronLeftIcon />
+            </ListItemIcon>
+          </Tooltip>
+          <Tooltip title={branchPathLabel}>
+            <ListItemText {...listItemTextProps} />
+          </Tooltip>
+        </>
+      ) : (
+        <ListItemText {...listItemTextProps} />
+      )}
+
+      {nodeType === "downBranch" && (
+        <Tooltip {...tooltipProps} title={enterText}>
+          <ListItemIcon
+            sx={{
+              minWidth: "auto",
+            }}
+          >
+            <ChevronRightIcon />
+          </ListItemIcon>
+        </Tooltip>
+      )}
+    </ListItemButton>
+  );
+}
+
+export interface TreeSelectRenderOptionState
+  extends AutocompleteRenderOptionState {
+  branchPathLabel: string;
+  disabled: boolean;
+  enterText: string;
+  exitText: string;
+  optionLabel: string;
+  type: NodeType;
+}
+
+export type RenderOption<Node, FreeSolo extends boolean | undefined> = (
+  props: React.HTMLAttributes<HTMLLIElement> & { key: React.Key },
+  option: Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
+  state: TreeSelectRenderOptionState
+) => React.ReactNode;
+
+/**
+ * Returns props for {@link DefaultOption} from arguments of {@link RenderOption}
+ */
+export const getDefaultOptionProps = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ...args: Parameters<RenderOption<any, true | false>>
+):
+  | UpBranchDefaultOptionsProps<"upBranch">
+  | DownBranchDefaultOptionsProps<"downBranch">
+  | LeafDefaultOptionsProps<"leaf"> => {
+  const [props, , state] = args;
+
+  const baseProps: BaseDefaultOptionsProps = {
+    dense: true,
+    divider: state.type === "upBranch",
+    ...props,
+    ListItemTextProps: {
+      primary: state.optionLabel,
+    },
+  };
+  switch (state.type) {
+    case "leaf":
+      return {
+        ...baseProps,
+        nodeType: state.type,
+      } as LeafDefaultOptionsProps<"leaf">;
+
+    case "downBranch":
+      return {
+        ...baseProps,
+        enterText: state.enterText,
+        nodeType: state.type,
+      } as DownBranchDefaultOptionsProps<"downBranch">;
+
+    case "upBranch":
+      return {
+        ...baseProps,
+        branchPathLabel: state.branchPathLabel,
+        exitText: state.exitText,
+        nodeType: state.type,
+      } as UpBranchDefaultOptionsProps<"upBranch">;
+  }
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const defaultRenderOption: RenderOption<any, true | false> = (...args) => (
+  <DefaultOption {...getDefaultOptionProps(...args)} />
+);
+
 export interface TreeSelectProps<
   Node,
   Multiple extends boolean | undefined,
@@ -57,7 +256,12 @@ export interface TreeSelectProps<
   FreeSolo extends boolean | undefined
 > extends UseTreeSelectProps<Node, Multiple, DisableClearable, FreeSolo>,
     Omit<
-      AutocompleteProps<Node, Multiple, DisableClearable, FreeSolo>,
+      AutocompleteProps<
+        Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
+        Multiple,
+        DisableClearable,
+        FreeSolo
+      >,
       | keyof UseTreeSelectProps<Node, Multiple, DisableClearable, FreeSolo>
       | "loading"
       | "options"
@@ -79,25 +283,9 @@ export interface TreeSelectProps<
   exitText?: string;
 
   /**
-   * 	Render the option, use `getOptionLabel` by default.
+   *  Render the option, use `getOptionLabel` by default.
    */
-  renderOption?: (
-    props: React.HTMLAttributes<HTMLLIElement>,
-    option: Option<Node>,
-    state: AutocompleteRenderOptionState
-  ) => React.ReactNode;
-
-  /**
-   * Render the selected value.
-   */
-  renderTags?: (
-    value: Option<
-      Node,
-      TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
-      "leaf"
-    >[],
-    getTagProps: AutocompleteRenderGetTagProps
-  ) => React.ReactNode;
+  renderOption?: RenderOption<Node, FreeSolo>;
 }
 
 export const TreeSelect = <
@@ -114,19 +302,16 @@ export const TreeSelect = <
     enterText = "Enter",
     exitText = "Exit",
     getChildren,
-    getOptionKey: getOptionKeyProp,
     getParent,
     isBranch,
     onBranchChange,
     onError,
-    // renderOption: renderOptionProp,
+    renderOption: renderOptionProp = defaultRenderOption,
     ...restProps
   } = props;
 
   const {
-    branchPath,
     getBranchPathLabel,
-    getOptionKey,
     getOptionLabel,
     handleOptionClick,
     loadingOptions,
@@ -135,7 +320,6 @@ export const TreeSelect = <
     branch,
     defaultBranch,
     getChildren,
-    getOptionKey: getOptionKeyProp,
     getParent,
     isBranch,
     onBranchChange,
@@ -144,89 +328,64 @@ export const TreeSelect = <
   });
 
   const renderOption = useCallback<
-    NonNullableAutocompleteProp<"renderOption", InternalOption<Node>>
+    NonNullableAutocompleteProp<"renderOption", InternalOption<Node, FreeSolo>>
   >(
-    ({ onClick, ...props }, option, { selected }) => {
-      const [, type] = option;
+    ({ onClick, ...props }, option, state) => {
+      const { type, node } = option;
 
-      const isUpBranch = type === OptionType.UP_BRANCH;
-      const isDownBranch = type === OptionType.DOWN_BRANCH;
+      const isUpBranch = type === "upBranch";
+      const isDownBranch = type === "downBranch";
 
-      const disabled = isUpBranch ? false : !!props["aria-disabled"];
-
-      const key = getOptionKey(option, {
-        key: (props as { key: string }).key,
-      });
-
-      return (
-        <ListItemButton
-          {...props}
-          key={key}
-          onClick={(
+      return renderOptionProp(
+        {
+          ...props,
+          key: `${(props as { key: string }).key}-${type}`,
+          onClick: (
             ...args: Parameters<React.MouseEventHandler<HTMLLIElement>>
           ) => {
             handleOptionClick(isUpBranch || isDownBranch);
             (onClick as React.MouseEventHandler<HTMLLIElement>)(...args);
-          }}
-          component="li"
-          dense
-          divider={isUpBranch}
-          disabled={disabled}
-          selected={selected && !isUpBranch}
-        >
-          {isUpBranch ? (
-            <>
-              <Tooltip title={exitText}>
-                <ListItemIcon>
-                  <ChevronLeftIcon />
-                </ListItemIcon>
-              </Tooltip>
-              <Tooltip title={getBranchPathLabel(branchPath)}>
-                <ListItemText primary={getOptionLabel(option)} />
-              </Tooltip>
-            </>
-          ) : (
-            <ListItemText primary={getOptionLabel(option)} />
-          )}
-
-          {isDownBranch && (
-            <Tooltip title={enterText}>
-              <ListItemIcon
-                sx={{
-                  minWidth: "auto",
-                }}
-              >
-                <ChevronRightIcon />
-              </ListItemIcon>
-            </Tooltip>
-          )}
-        </ListItemButton>
+          },
+        },
+        node,
+        {
+          ...state,
+          branchPathLabel:
+            isUpBranch || isDownBranch
+              ? getBranchPathLabel(option, true)
+              : getBranchPathLabel(option, false),
+          disabled: isUpBranch ? false : !!props["aria-disabled"],
+          enterText,
+          exitText,
+          optionLabel: getOptionLabel(option),
+          type,
+        }
       );
     },
     [
-      branchPath,
       enterText,
       exitText,
       getBranchPathLabel,
-      getOptionKey,
       getOptionLabel,
       handleOptionClick,
+      renderOptionProp,
     ]
   );
 
   const renderTags = useMemo<
     NonNullableAutocompleteProp<
       "renderTags",
-      InternalValue<Node, Multiple, false, FreeSolo>
+      InternalOption<Node, FreeSolo>,
+      Multiple,
+      DisableClearable,
+      FreeSolo
     >
   >(() => {
     return (value, getTagProps) =>
       value.map((option, index) => {
         const { key, ...tagProps } = getTagProps({ index });
 
-        const title = getBranchPathLabel(
-          (option as InternalValue<Node, Multiple, false, false>).slice(1)
-        );
+        const title = getBranchPathLabel(option, true);
 
         return (
           <Tooltip key={key} title={title}>
