@@ -1,15 +1,10 @@
 import {
   UseAutocompleteProps,
   AutocompleteValue,
-  AutocompleteHighlightChangeReason,
   createFilterOptions,
-  AutocompleteChangeReason,
-  AutocompleteChangeDetails,
-  AutocompleteInputChangeReason,
-  FilterOptionsState,
 } from "@mui/base";
 import useControlled from "@mui/utils/useControlled";
-import { useCallback, useMemo, useRef } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import usePromise from "./usePromise";
 
 /**
@@ -68,7 +63,15 @@ export class FreeSoloNode<Node> extends String {
 export type TreeSelectFreeSoloValueMapping<Node, FreeSolo> =
   FreeSolo extends true ? FreeSoloNode<Node> : never;
 
-export type NodeType = "leaf" | "downBranch" | "upBranch";
+/**
+ * @internal
+ * @ignore
+ */
+export enum NodeType {
+  LEAF,
+  DOWN_BRANCH,
+  UP_BRANCH,
+}
 
 export function asyncOrAsyncBlock<G extends Generator>(
   it: G
@@ -108,7 +111,10 @@ export class InternalOption<
   }
 }
 
-export type BranchChangeDirection = "up" | "down";
+/**
+ * Indicates the tree navigation direction. `"up"` in the direction of ancestors and `"down"`in the direction of descendants.
+ */
+export type PathDirection = "up" | "down";
 
 export interface UseTreeSelectProps<
   Node,
@@ -124,7 +130,6 @@ export interface UseTreeSelectProps<
       >,
       | "componentName"
       | "defaultValue"
-      | "getOptionDisabled"
       | "groupBy"
       | "inputValue"
       | "isOptionEqualToValue"
@@ -139,7 +144,7 @@ export interface UseTreeSelectProps<
     >,
     Pick<
       UseAutocompleteProps<Node, Multiple, DisableClearable, false>,
-      "filterOptions"
+      "filterOptions" | "getOptionDisabled"
     > {
   /**
    * The active **Branch** Node.  This Node's children will be displayed in the select menu.
@@ -154,17 +159,15 @@ export interface UseTreeSelectProps<
   /**
    * If true, the Autocomplete is free solo, meaning that the user input is not bound to provided options.
    */
-  freeSolo?: boolean;
+  freeSolo?: FreeSolo;
 
   /**
    * Used to determine the string value of a branch path.
    *
-   * @remarks `branchPath` ascends ancestors.
+   * @remarks `path` ascends ancestors.
    */
-  getBranchPathLabel?: (
-    branchPath: ReadonlyArray<
-      Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>
-    >
+  getPathLabel?: (
+    path: ReadonlyArray<Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>>
   ) => string;
 
   /**
@@ -216,7 +219,7 @@ export interface UseTreeSelectProps<
   onBranchChange?: (
     event: React.SyntheticEvent,
     branchNode: Node | null,
-    direction: BranchChangeDirection
+    direction: PathDirection
   ) => void;
 
   /**
@@ -266,12 +269,17 @@ export interface UseTreeSelectReturn<
       >,
       "groupBy"
     > {
-  getBranchPathLabel: (
+  getPathLabel: (
     to: InternalOption<Node, FreeSolo>,
     includeTo: boolean
   ) => string;
-  handleOptionClick: (isOptionBranch: boolean) => void;
+  onKeyDown: React.KeyboardEventHandler<HTMLDivElement>;
+  handleOptionClick: (
+    branchOption: InternalOption<Node, FreeSolo, NodeType>
+  ) => void;
+  isAtRoot: boolean;
   loadingOptions: boolean;
+  noOptions: React.RefObject<boolean>;
 }
 
 const getPathToNode = <Node>(
@@ -320,7 +328,7 @@ export const useTreeSelect = <
   defaultValue,
   filterOptions: filterOptionsProp = defaultFilterOptions,
   freeSolo,
-  getBranchPathLabel: getBranchPathLabelProp,
+  getPathLabel: getPathLabelProp,
   getChildren,
   getOptionDisabled: getOptionDisabledProp = defaultGetOptionDisabled,
   getOptionLabel: getOptionLabelProp = defaultGetOptionLabel,
@@ -391,39 +399,40 @@ export const useTreeSelect = <
     [getChildren, isBranchProp]
   );
 
-  const branchPathArg = useMemo(() => {
+  const pathArg = useMemo(() => {
     if ((curBranch ?? null) === null) {
       return [];
     }
-    const branchPath = getPathToNode<Node>(curBranch as Node, getParent);
+    const path = getPathToNode<Node>(curBranch as Node, getParent);
 
-    if (branchPath instanceof Promise) {
-      return branchPath.then((branchPath) => {
-        branchPath.unshift(curBranch as Node);
-        return branchPath;
+    if (path instanceof Promise) {
+      return path.then((path) => {
+        path.unshift(curBranch as Node);
+        return path;
       });
     } else {
-      branchPath.unshift(curBranch as Node);
-      return branchPath;
+      path.unshift(curBranch as Node);
+      return path;
     }
   }, [curBranch, getParent]);
 
-  const branchPathResult = usePromise(branchPathArg, onError);
+  const pathResult = usePromise(pathArg, onError);
 
   const optionsResult = usePromise(
     useMemo(() => {
       function* getOpts() {
         const options: InternalOption<Node, FreeSolo>[] = [];
 
-        const [branchPath, children] = (yield (() => {
+        const [path, children] = (yield (() => {
           const children = getChildren(curBranch);
 
-          if (branchPathArg instanceof Promise || children instanceof Promise) {
-            return Promise.all([branchPathArg, children]).then(
-              ([branchPath, children]) => [branchPath, children || []]
-            );
+          if (pathArg instanceof Promise || children instanceof Promise) {
+            return Promise.all([pathArg, children]).then(([path, children]) => [
+              path,
+              children || [],
+            ]);
           } else {
-            return [branchPathArg, children || []];
+            return [pathArg, children || []];
           }
         })()) as [Node[], Node[]];
 
@@ -431,8 +440,8 @@ export const useTreeSelect = <
           options.push(
             new InternalOption(
               curBranch as Node,
-              "upBranch",
-              branchPath.slice(1)
+              NodeType.UP_BRANCH,
+              path.slice(1)
             )
           );
         }
@@ -448,8 +457,8 @@ export const useTreeSelect = <
                   (isBranch) =>
                     new InternalOption<Node, FreeSolo>(
                       childNode,
-                      isBranch ? "downBranch" : "leaf",
-                      branchPath
+                      isBranch ? NodeType.DOWN_BRANCH : NodeType.LEAF,
+                      path
                     )
                 )
               );
@@ -457,8 +466,8 @@ export const useTreeSelect = <
               results[0].push(
                 new InternalOption<Node, FreeSolo>(
                   childNode,
-                  isBranchResult ? "downBranch" : "leaf",
-                  branchPath
+                  isBranchResult ? NodeType.DOWN_BRANCH : NodeType.LEAF,
+                  path
                 )
               );
             }
@@ -473,20 +482,20 @@ export const useTreeSelect = <
 
         options.push(
           ...((hasPromise
-            ? childOpts
-            : yield Promise.all(childOpts)) as InternalOption<Node, FreeSolo>[])
+            ? yield Promise.all(childOpts)
+            : childOpts) as InternalOption<Node, FreeSolo>[])
         );
 
         return options.sort(({ type: a }, { type: b }) => {
           if (a === b) {
             return 0;
-          } else if (a === "upBranch") {
+          } else if (a === NodeType.UP_BRANCH) {
             return -1;
-          } else if (b === "upBranch") {
+          } else if (b === NodeType.UP_BRANCH) {
             return 1;
-          } else if (a === "downBranch") {
+          } else if (a === NodeType.DOWN_BRANCH) {
             return -1;
-          } else if (b === "downBranch") {
+          } else if (b === NodeType.DOWN_BRANCH) {
             return 1;
           }
           return 0; // This should never happen.
@@ -494,13 +503,13 @@ export const useTreeSelect = <
       }
 
       return asyncOrAsyncBlock(getOpts());
-    }, [curBranch, getChildren, branchPathArg, isBranch]),
+    }, [curBranch, getChildren, pathArg, isBranch]),
     onError
   );
 
   const valueResult = usePromise(
     useMemo(() => {
-      if (curValue === null || curValue === undefined) {
+      if ((curValue ?? null) === null) {
         return null;
       } else if (multiple) {
         const multiValue: SyncOrAsync<InternalOption<Node, FreeSolo>>[] = [];
@@ -513,17 +522,15 @@ export const useTreeSelect = <
           true,
           false
         >) {
-          const branchPath = getPathToNode<Node>(node, getParent);
+          const path = getPathToNode<Node>(node, getParent);
 
-          if (branchPath instanceof Promise) {
+          if (path instanceof Promise) {
             hasPromise = true;
             multiValue.push(
-              branchPath.then(
-                (branchPath) => new InternalOption(node, "leaf", branchPath)
-              )
+              path.then((path) => new InternalOption(node, NodeType.LEAF, path))
             );
           } else {
-            multiValue.push(new InternalOption(node, "leaf", branchPath));
+            multiValue.push(new InternalOption(node, NodeType.LEAF, path));
           }
         }
 
@@ -533,20 +540,20 @@ export const useTreeSelect = <
           return multiValue as InternalOption<Node, FreeSolo>[];
         }
       } else {
-        const branchPath = getPathToNode<Node>(curValue as Node, getParent);
-        return branchPath instanceof Promise
-          ? branchPath.then(
-              (branchPath) =>
+        const path = getPathToNode<Node>(curValue as Node, getParent);
+        return path instanceof Promise
+          ? path.then(
+              (path) =>
                 new InternalOption<Node, FreeSolo>(
                   curValue as Node,
-                  "leaf",
-                  branchPath
+                  NodeType.LEAF,
+                  path
                 )
             )
           : new InternalOption<Node, FreeSolo>(
               curValue as Node,
-              "leaf",
-              branchPath
+              NodeType.LEAF,
+              path
             );
       }
     }, [curValue, getParent, multiple]),
@@ -564,117 +571,29 @@ export const useTreeSelect = <
             DisableClearable,
             false
           >
-        ).map((value) => new InternalOption(value, "leaf", []))
+        ).map((value) => new InternalOption(value, NodeType.LEAF, []))
       );
     } else {
-      valueResult.data ??
+      return (
+        valueResult.data ??
         ((curValue ?? null) === null
           ? null
           : new InternalOption(
               curValue as Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
-              "leaf",
+              NodeType.LEAF,
               []
-            ));
+            ))
+      );
     }
   }, [curValue, multiple, valueResult.data]);
-
-  const getOptionDisabled = useCallback<Return["getOptionDisabled"]>(
-    ({ node, type }) => {
-      if (type === "upBranch" || node instanceof FreeSoloNode) {
-        return false;
-      }
-      return getOptionDisabledProp(node);
-    },
-    [getOptionDisabledProp]
-  );
-
-  const getOptionLabel = useCallback<Return["getOptionLabel"]>(
-    ({ node }) => getOptionLabelProp(node),
-    [getOptionLabelProp]
-  );
-
-  const getBranchPathLabel = useCallback<Return["getBranchPathLabel"]>(
-    (to, includeTo) => {
-      if (getBranchPathLabelProp) {
-        return getBranchPathLabelProp(
-          includeTo ? [to.node, ...to.path] : to.path
-        );
-      } else {
-        if (!to.path.length && !includeTo) {
-          return "";
-        }
-
-        const [first, rest] = (() => {
-          if (includeTo) {
-            return [to.node, to.path] as const;
-          }
-          return [to.path[0], to.path.slice(1)] as const;
-        })();
-
-        return rest.reduce((label, node) => {
-          return `${getOptionLabelProp(node)} > ${label}`;
-        }, getOptionLabelProp(first));
-      }
-    },
-    [getBranchPathLabelProp, getOptionLabelProp]
-  );
-
-  const groupBy = useMemo<Return["groupBy"]>(() => {
-    if (groupByProp) {
-      return ({ node, type }) => {
-        if (type === "upBranch") {
-          return "";
-        } else {
-          return groupByProp(node);
-        }
-      };
-    }
-  }, [groupByProp]);
-
-  const filterOptions = useCallback<Return["filterOptions"]>(
-    (options, state) => {
-      const [upBranch, optionsMap, freeSoloOptions] = options.reduce(
-        (result, option) => {
-          if (option.type === "upBranch") {
-            result[0] = option;
-          } else if (option.node instanceof FreeSoloNode) {
-            result[2].push(option);
-          } else {
-            result[1].set(option.node, option);
-          }
-
-          return result;
-        },
-        [null, new Map(), []] as [
-          InternalOption<Node, FreeSolo, NodeType> | null,
-          Map<Node, InternalOption<Node, FreeSolo, NodeType>>,
-          InternalOption<Node, FreeSolo, NodeType>[]
-        ]
-      );
-
-      const filteredOptions = filterOptionsProp([...optionsMap.keys()], {
-        ...state,
-        getOptionLabel: getOptionLabelProp,
-      }).map((node) => optionsMap.get(node)) as InternalOption<
-        Node,
-        FreeSolo,
-        NodeType
-      >[];
-
-      return upBranch === null
-        ? [...filteredOptions, ...freeSoloOptions]
-        : [upBranch, ...filteredOptions, ...freeSoloOptions];
-    },
-    [filterOptionsProp, getOptionLabelProp]
-  );
 
   const isOptionEqualToValue = useCallback<Return["isOptionEqualToValue"]>(
     (option, value) => {
       if (
-        option.type === "upBranch" ||
-        option.type === "downBranch" ||
-        value.type === "upBranch" ||
-        value.type === "downBranch"
+        option.type === NodeType.UP_BRANCH ||
+        option.type === NodeType.DOWN_BRANCH ||
+        value.type === NodeType.UP_BRANCH ||
+        value.type === NodeType.DOWN_BRANCH
       ) {
         return false;
       }
@@ -715,30 +634,168 @@ export const useTreeSelect = <
     [curBranch, freeSolo, isOptionEqualToValueProp, multiple]
   );
 
-  const isSelectedOptionBranch = useRef(false);
+  const options = useMemo(() => {
+    if (optionsResult.data) {
+      // Determine if "inputValue" should be an "add" free solo option.
+      if (freeSolo && inputValue) {
+        const freeSoloOption = new InternalOption(
+          new FreeSoloNode(inputValue, curBranch),
+          NodeType.LEAF,
+          pathResult.data || []
+        );
+
+        if (
+          (
+            (multiple ? value : [value]) as InternalOption<
+              Node,
+              FreeSolo,
+              NodeType
+            >[]
+          ).every(
+            (value) =>
+              !(value.node instanceof FreeSoloNode) ||
+              !isOptionEqualToValue(freeSoloOption, value)
+          )
+        ) {
+          return [...optionsResult.data, freeSoloOption];
+        }
+      }
+      return optionsResult.data;
+    } else if (curBranch === null) {
+      return [];
+    } else {
+      return [new InternalOption(curBranch as Node, NodeType.UP_BRANCH, [])];
+    }
+  }, [
+    curBranch,
+    freeSolo,
+    inputValue,
+    isOptionEqualToValue,
+    multiple,
+    optionsResult.data,
+    pathResult.data,
+    value,
+  ]);
+
+  const getOptionDisabled = useCallback<Return["getOptionDisabled"]>(
+    ({ node, type }) => {
+      if (type === NodeType.UP_BRANCH || node instanceof FreeSoloNode) {
+        return false;
+      }
+      return getOptionDisabledProp(node);
+    },
+    [getOptionDisabledProp]
+  );
+
+  const getOptionLabel = useCallback<Return["getOptionLabel"]>(
+    ({ node }) => getOptionLabelProp(node),
+    [getOptionLabelProp]
+  );
+
+  const getPathLabel = useCallback<Return["getPathLabel"]>(
+    (to, includeTo) => {
+      if (getPathLabelProp) {
+        return getPathLabelProp(includeTo ? [to.node, ...to.path] : to.path);
+      } else {
+        if (!to.path.length && !includeTo) {
+          return "";
+        }
+
+        const [first, rest] = (() => {
+          if (includeTo) {
+            return [to.node, to.path] as const;
+          }
+          return [to.path[0], to.path.slice(1)] as const;
+        })();
+
+        return rest.reduce((label, node) => {
+          return `${getOptionLabelProp(node)} > ${label}`;
+        }, getOptionLabelProp(first));
+      }
+    },
+    [getPathLabelProp, getOptionLabelProp]
+  );
+
+  const groupBy = useMemo<Return["groupBy"]>(() => {
+    if (groupByProp) {
+      return ({ node, type }) => {
+        if (type === NodeType.UP_BRANCH) {
+          return "";
+        } else {
+          return groupByProp(node);
+        }
+      };
+    }
+  }, [groupByProp]);
+
+  const noOptions = useRef<boolean>(
+    !options.length ||
+      (options.length === 1 && options[0].type === NodeType.UP_BRANCH)
+  );
+  const filterOptions = useCallback<Return["filterOptions"]>(
+    (options, state) => {
+      const [upBranch, optionsMap, freeSoloOptions] = options.reduce(
+        (result, option) => {
+          if (option.type === NodeType.UP_BRANCH) {
+            result[0] = option;
+          } else if (option.node instanceof FreeSoloNode) {
+            result[2].push(option);
+          } else {
+            result[1].set(option.node, option);
+          }
+
+          return result;
+        },
+        [null, new Map(), []] as [
+          InternalOption<Node, FreeSolo, NodeType> | null,
+          Map<Node, InternalOption<Node, FreeSolo, NodeType>>,
+          InternalOption<Node, FreeSolo, NodeType>[]
+        ]
+      );
+
+      const filteredOptions = filterOptionsProp([...optionsMap.keys()], {
+        ...state,
+        getOptionLabel: getOptionLabelProp,
+      }).map((node) => optionsMap.get(node)) as InternalOption<
+        Node,
+        FreeSolo,
+        NodeType
+      >[];
+
+      noOptions.current = !filteredOptions.length && !freeSoloOptions.length;
+
+      return upBranch === null
+        ? [...filteredOptions, ...freeSoloOptions]
+        : [upBranch, ...filteredOptions, ...freeSoloOptions];
+    },
+    [filterOptionsProp, getOptionLabelProp]
+  );
+
+  const selectedOption = useRef<InternalOption<
+    Node,
+    FreeSolo,
+    NodeType
+  > | null>(null);
 
   const onHighlightChange = useCallback<Return["onHighlightChange"]>(
     (event, option, reason) => {
-      const { node, type } = option || {};
-
-      isSelectedOptionBranch.current =
-        type === "downBranch" || type === "upBranch";
+      selectedOption.current = option;
 
       if (onHighlightChangeProp) {
-        onHighlightChangeProp(event, node ?? null, reason);
+        onHighlightChangeProp(event, option?.node ?? null, reason);
       }
     },
     [onHighlightChangeProp]
   );
 
-  const handleOptionClick = useCallback((isOptionBranch: boolean) => {
-    isSelectedOptionBranch.current = isOptionBranch;
-  }, []);
-
   const onInputChange = useCallback<Return["onInputChange"]>(
     (...args) => {
       const [, , reason] = args;
-      if (isSelectedOptionBranch.current && reason === "reset") {
+      if (
+        selectedOption.current &&
+        selectedOption.current.type !== NodeType.LEAF &&
+        reason === "reset"
+      ) {
         if (multiple || (value ?? null) === null) {
           args[1] = "";
         } else {
@@ -759,14 +816,74 @@ export const useTreeSelect = <
     [getOptionLabel, multiple, onInputChangeProp, setInputValue, value]
   );
 
+  const onKeyDown = useCallback<React.KeyboardEventHandler<HTMLDivElement>>(
+    (event) => {
+      if (
+        !selectedOption.current ||
+        selectedOption.current.type === NodeType.LEAF ||
+        event.which == 229
+      ) {
+        return;
+      } else if (event.key === "ArrowRight") {
+        if (selectedOption.current.type === NodeType.DOWN_BRANCH) {
+          event.preventDefault();
+          // https://github.com/mui/mui-x/issues/1403
+          // https://github.com/mui/material-ui/blob/b3645b3fd11dc26a06ea370a41b5bac1026c6792/packages/mui-base/src/AutocompleteUnstyled/useAutocomplete.js#L727
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (event as any)["defaultMuiPrevented"] = true;
+
+          const node = selectedOption.current.node as Node;
+
+          if (onInputChange) {
+            onInputChange(event, "", "reset");
+          }
+
+          if (onBranchChange) {
+            onBranchChange(event, node, "down");
+          }
+
+          setBranch(node);
+        }
+      } else if (event.key === "ArrowLeft") {
+        if (selectedOption.current.type === NodeType.UP_BRANCH) {
+          event.preventDefault();
+          // https://github.com/mui/mui-x/issues/1403
+          // https://github.com/mui/material-ui/blob/b3645b3fd11dc26a06ea370a41b5bac1026c6792/packages/mui-base/src/AutocompleteUnstyled/useAutocomplete.js#L727
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (event as any)["defaultMuiPrevented"] = true;
+
+          const node = selectedOption.current.path[0] ?? null;
+
+          if (onInputChange) {
+            onInputChange(event, "", "reset");
+          }
+
+          if (onBranchChange) {
+            onBranchChange(event, node, "up");
+          }
+
+          setBranch(node);
+        }
+      }
+    },
+    [onBranchChange, onInputChange, setBranch]
+  );
+
+  const handleOptionClick = useCallback(
+    (branchOption: InternalOption<Node, FreeSolo, NodeType>) => {
+      selectedOption.current = branchOption;
+    },
+    []
+  );
+
   const onChange = useMemo<Return["onChange"]>(() => {
     const handleBranchChange = (
       event: React.SyntheticEvent<Element, Event>,
       option: InternalOption<Node, FreeSolo>
     ): boolean => {
-      const isUpBranch = option.type === "upBranch";
+      const isUpBranch = option.type === NodeType.UP_BRANCH;
 
-      if (isUpBranch || option.type === "downBranch") {
+      if (isUpBranch || option.type === NodeType.DOWN_BRANCH) {
         const node = isUpBranch
           ? option.path[0] ?? null
           : (option.node as Node);
@@ -1125,7 +1242,11 @@ export const useTreeSelect = <
     (...args) => {
       const [, reason] = args;
 
-      if (reason === "selectOption" && isSelectedOptionBranch.current) {
+      if (
+        reason === "selectOption" &&
+        selectedOption.current &&
+        selectedOption.current.type !== NodeType.LEAF
+      ) {
         return;
       }
 
@@ -1159,21 +1280,24 @@ export const useTreeSelect = <
 
   return {
     filterOptions,
-    getBranchPathLabel,
+    getPathLabel,
     getOptionDisabled,
     getOptionLabel,
     groupBy,
+    onKeyDown,
     handleOptionClick,
     inputValue,
+    isAtRoot: curBranch === null,
     isOptionEqualToValue,
-    loadingOptions: branchPathResult.loading || optionsResult.loading,
+    loadingOptions: pathResult.loading || optionsResult.loading,
+    noOptions,
     onChange,
     onClose,
     onHighlightChange,
     onInputChange,
     onOpen,
     open,
-    options: optionsResult.data || [],
+    options,
     value: value as Return["value"],
   };
 };

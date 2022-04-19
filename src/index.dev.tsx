@@ -1,8 +1,14 @@
 import React, { useState } from "react";
 import ReactDOM from "react-dom";
 import _sampleData from "./sampleData.json";
-import TreeSelect, { TreeSelectProps, FreeSoloNode } from "./index";
-import { TextField } from "@mui/material";
+import TreeSelect, { FreeSoloNode } from "./index";
+import {
+  FormControl,
+  FormControlLabel,
+  FormHelperText,
+  Switch,
+  TextField,
+} from "@mui/material";
 import { DefaultOption, getDefaultOptionProps } from "./TreeSelect";
 
 interface City {
@@ -27,6 +33,7 @@ const sampleData = _sampleData as ReadonlyArray<Country>;
 
 class Node {
   constructor(readonly value: City | State | Country) {}
+
   getParent() {
     const parent = (() => {
       if ("states" in this.value) {
@@ -52,6 +59,7 @@ class Node {
 
     return parent ? new Node(parent) : parent;
   }
+
   getChildren() {
     if ("states" in this.value) {
       return this.value.states.map((state) => new Node(state));
@@ -78,86 +86,123 @@ class Node {
 const syncOrAsync = function <T>(value: T, returnAsync: boolean) {
   if (returnAsync) {
     return new Promise<T>((resolve) =>
-      setTimeout(() => resolve(value), Math.random() * 1000)
+      setTimeout(() => resolve(value), Math.random() * 500)
     );
   }
   return value;
 };
 
-const renderInput: TreeSelectProps<
-  Node,
-  true | false,
-  true | false,
-  true | false
->["renderInput"] = (params) => <TextField {...params} />;
-
 const Sample: React.FC = () => {
   const [runAsync, setRynAsync] = useState(false);
 
+  const [branch, setBranch] = useState<Node | null>(null);
+  const [value, setValue] = useState<(Node | FreeSoloNode<Node>)[]>([]);
+
   return (
-    <>
-      <div style={{ width: 450 }}>
-        <TreeSelect
-          freeSolo
-          getParent={(node: Node) => syncOrAsync(node.getParent(), runAsync)}
-          getChildren={(node) =>
-            syncOrAsync(
-              node
-                ? node.getChildren()
-                : sampleData.map((country) => new Node(country)),
-              runAsync
-            )
-          }
-          isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
-          isOptionEqualToValue={(option, value) => {
-            return option instanceof FreeSoloNode
-              ? false
-              : option.isEqual(value);
-          }}
-          getOptionDisabled={(option) =>
-            option.isBranch() && !option.getChildren()?.length
-          }
-          renderInput={renderInput}
-        />
-      </div>
-      <div style={{ width: 450 }}>
-        <TreeSelect
-          multiple
-          freeSolo
-          getParent={(node: Node) => syncOrAsync(node.getParent(), runAsync)}
-          getChildren={(node) =>
-            syncOrAsync(
-              node
-                ? node.getChildren()
-                : sampleData.map((country) => new Node(country)),
-              runAsync
-            )
-          }
-          isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
-          isOptionEqualToValue={(option, value) => {
-            return option instanceof FreeSoloNode
-              ? value instanceof FreeSoloNode &&
-                  value.toString() === option.toString()
-              : option.isEqual(value);
-          }}
-          getOptionDisabled={(option) =>
-            option.isBranch() && !option.getChildren()?.length
-          }
-          renderOption={(...args) => (
-            <DefaultOption
-              {...((props, node) => ({
-                ...props,
-                ListItemTextProps: {
-                  ...props.ListItemTextProps,
-                  secondary: node.value.id,
-                },
-              }))(getDefaultOptionProps(...args), args[1])}
+    <div style={{ width: 450 }}>
+      <FormControl fullWidth>
+        <FormControlLabel
+          sx={{ m: 1 }}
+          control={
+            <Switch
+              checked={runAsync}
+              onChange={() => setRynAsync(!runAsync)}
             />
-          )}
-          renderInput={renderInput}
+          }
+          label="Run Async"
         />
-      </div>
-    </>
+        <FormHelperText>
+          Run "getChildren", "getParent", and "isBranch" async.
+        </FormHelperText>
+      </FormControl>
+      <TreeSelect
+        getChildren={(node) =>
+          syncOrAsync(
+            node
+              ? node.getChildren()
+              : sampleData.map((country) => new Node(country)),
+            runAsync
+          )
+        }
+        getOptionDisabled={(option) =>
+          option.isBranch() && !option.getChildren()?.length
+        }
+        getParent={(node: Node) => syncOrAsync(node.getParent(), runAsync)}
+        isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
+        isOptionEqualToValue={(option, value) => {
+          return option instanceof FreeSoloNode ? false : option.isEqual(value);
+        }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="City"
+            helperText="Select a city by its country and state."
+          />
+        )}
+        sx={{ m: 1, mt: 2, mb: 2 }}
+      />
+
+      <TreeSelect
+        sx={{ m: 1 }}
+        branch={branch}
+        onBranchChange={(_, branch) => void setBranch(branch)}
+        // Allow adding cities.
+        freeSolo={branch?.value && "cities" in branch.value}
+        addFreeSoloText="Add City: "
+        getChildren={(node) =>
+          syncOrAsync(
+            node
+              ? node.getChildren()
+              : sampleData.map((country) => new Node(country)),
+            runAsync
+          )
+        }
+        getParent={(node: Node) => syncOrAsync(node.getParent(), runAsync)}
+        getOptionDisabled={(option) => {
+          return option.isBranch() && !option.getChildren()?.length;
+        }}
+        isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
+        isOptionEqualToValue={(option, value) => {
+          return option instanceof FreeSoloNode
+            ? value instanceof FreeSoloNode &&
+                value.toString() === option.toString() &&
+                (option.parent === null || value.parent === null
+                  ? option.parent === value.parent
+                  : option.parent.isEqual(value.parent))
+            : value instanceof FreeSoloNode
+            ? false
+            : option.isEqual(value);
+        }}
+        multiple
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Cities"
+            helperText="Select multiple cities by their country and state."
+          />
+        )}
+        renderOption={(...args) => (
+          <DefaultOption
+            {...((props, node) => ({
+              ...props,
+              ListItemTextProps: {
+                ...props.ListItemTextProps,
+                secondary:
+                  node instanceof FreeSoloNode
+                    ? undefined
+                    : "states" in node.value
+                    ? `States ${node.getChildren()?.length || 0}`
+                    : "cities" in node.value
+                    ? `Cities ${node.getChildren()?.length || 0}`
+                    : undefined,
+              },
+            }))(getDefaultOptionProps(...args), args[1])}
+          />
+        )}
+        value={value}
+        onChange={(_, value) => void setValue(value)}
+      />
+    </div>
   );
 };
 
