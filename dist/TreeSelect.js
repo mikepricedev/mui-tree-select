@@ -157,7 +157,7 @@ const AutocompleteNoOptions = styled("div", {
   color: theme.palette.text.secondary,
   padding: "14px 16px",
 }));
-export const TreeSelect = (props) => {
+const _TreeSelect = (props, ref) => {
   const {
     addFreeSoloText = "Add: ",
     branch,
@@ -343,8 +343,10 @@ export const TreeSelect = (props) => {
       renderInput: renderInput,
       renderOption: renderOption,
       renderTags: renderTags,
+      ref: ref,
     }
   );
 };
+export const TreeSelect = forwardRef(_TreeSelect);
 export default TreeSelect;
 //# sourceMappingURL=TreeSelect.js.map

@@ -38,7 +38,8 @@ export declare type NullableUseAutocompleteProp<
 /**
  * Wrapper for free solo values.
  *
- * @remarks FreeSoloNode is always a leaf node.
+ * FreeSoloNode is always a leaf node.
+ *
  */
 export declare class FreeSoloNode<Node> extends String {
   readonly parent: Node | null;
@@ -127,7 +128,7 @@ export interface UseTreeSelectProps<
   /**
    * Used to determine the string value of a branch path.
    *
-   * @remarks `path` ascends ancestors.
+   * `path` ascends ancestors.
    */
   getPathLabel?: (
     path: ReadonlyArray<Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>>
@@ -136,7 +137,7 @@ export interface UseTreeSelectProps<
    * Used to determine the string value for a given option.
    * It's used to fill the input (and the list box options if `renderOption` is not provided).
    *
-   * @remarks Defaults to `(option:Node) => String(option)`; therefor, implementing a `Node.toString` is an alternative to supplying a custom`getOptionLabel`.
+   * Defaults to `(option:Node) => String(option)`; therefor, implementing a `Node.toString` is an alternative to supplying a custom`getOptionLabel`.
    */
   getOptionLabel?: UseAutocompleteProps<
     Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
@@ -151,7 +152,7 @@ export interface UseTreeSelectProps<
    *
    * @returns **Child** Nodes or a nullish value when `node` does not have children.
    *
-   * @remarks Returning a nullish value indicates that `node` is a **Leaf** Node.
+   * Returning a nullish value indicates that `node` is a **Leaf** Node.
    *
    */
   getChildren: (node: Node | null) => SyncOrAsync<Node[] | null | undefined>;
@@ -160,13 +161,13 @@ export interface UseTreeSelectProps<
    *
    * @returns **Branch** Node parent of `node` or a nullish value when `node` does not have a parent.
    *
-   * @remarks Returning a nullish value indicates that `node` is a root select option.
+   * Returning a nullish value indicates that `node` is a root select option.
    */
   getParent: (node: Node) => SyncOrAsync<Node | null | undefined>;
   /**
    * Determines if a select option is a **Branch** or **Leaf** Node.
    *
-   * @remarks Overrides default behavior which is to call {@link UseTreeSelectProps.getChildren} and to infer `node` type from the return value.
+   * Overrides default behavior which is to call {@link UseTreeSelectProps.getChildren} and to infer `node` type from the return value.
    */
   isBranch?: (node: Node) => SyncOrAsync<boolean>;
   /**

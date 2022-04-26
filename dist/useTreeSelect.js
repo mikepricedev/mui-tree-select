@@ -5,7 +5,8 @@ import usePromise from "./usePromise";
 /**
  * Wrapper for free solo values.
  *
- * @remarks FreeSoloNode is always a leaf node.
+ * FreeSoloNode is always a leaf node.
+ *
  */
 export class FreeSoloNode extends String {
   constructor(freeSoloValue, parent = null) {
