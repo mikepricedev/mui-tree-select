@@ -47,7 +47,7 @@ const rootNodes = [...] // Array of Nodes;
 const getChildren = (node) => node === null ? rootNodes : node.children;
 ```
 
-2. Implement a [`getParent`](https://mikepricedev.github.io/mui-tree-select/interfaces/TreeSelectProps.html#getParent) to tell Tree Select how to retrieve parent nodes.
+2. Implement a [`getParent`](https://mikepricedev.github.io/mui-tree-select/interfaces/TreeSelectProps.html#getParent) method to tell Tree Select how to retrieve parent nodes.
 
 ```
 const getParent = (node) => node.parent;

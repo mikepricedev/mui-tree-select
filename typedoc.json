@@ -4,6 +4,7 @@
   "entryPoints": ["./src/index.tsx"],
   "excludeInternal": true,
   "excludePrivate": true,
+  "gaID": "G-XLBDCKS75T",
   "githubPages": true,
   "name": "MUI Tree Select",
   "out": "./docs",
