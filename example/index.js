@@ -1,3 +1,4 @@
+import { ThemeProvider, createTheme } from "@mui/material/styles";
 import React, { useState } from "react";
 import ReactDOM from "react-dom";
 import _sampleData from "./db/sampleData";
@@ -7,11 +8,13 @@ import TreeSelect, {
   getDefaultOptionProps,
 } from "mui-tree-select";
 import {
+  CssBaseline,
   FormControl,
   FormControlLabel,
   FormHelperText,
   Switch,
   TextField,
+  useMediaQuery,
 } from "@mui/material";
 const sampleData = _sampleData;
 class Node {
@@ -205,4 +208,27 @@ const Sample = () => {
     </div>
   );
 };
-ReactDOM.render(<Sample />, document.getElementById("root"));
+const darkTheme = createTheme({
+  palette: {
+    mode: "dark",
+  },
+});
+const App = () => {
+  const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
+  const theme = React.useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode: prefersDarkMode ? "dark" : "light",
+        },
+      }),
+    [prefersDarkMode]
+  );
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Sample />
+    </ThemeProvider>
+  );
+};
+ReactDOM.render(<App />, document.getElementById("root"));

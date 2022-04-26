@@ -16,7 +16,7 @@ const SRC_DIR = path.resolve(__dirname, "../src");
         {
           name: `${name}-example`,
           dependencies: {
-            "mui-tree-select": `@${version}`,
+            "mui-tree-select": `${version}`,
             "@emotion/react": "latest",
             "@emotion/styled": "latest",
             "@mui/material": "latest",
