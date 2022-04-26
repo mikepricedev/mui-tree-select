@@ -78,8 +78,10 @@ const path = require("path");
 
   await Promise.all([
     fs.promises.writeFile(
-      path.resolve(__dirname, "../src/example/db/sampleData.json"),
-      JSON.stringify(db),
+      path.resolve(__dirname, "../src/example/db/sampleData.ts"),
+      `const db = ${JSON.stringify(db)};
+      export default db;
+      `,
       { flag: "w+" }
     ),
     fs.promises.writeFile(

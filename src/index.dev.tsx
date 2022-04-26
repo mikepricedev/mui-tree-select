@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import ReactDOM from "react-dom";
-import _sampleData from "./example/db/sampleData.json";
+import _sampleData from "./example/db/sampleData";
 import TreeSelect, {
   FreeSoloNode,
   DefaultOption,
