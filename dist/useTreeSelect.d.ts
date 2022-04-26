@@ -1,6 +1,6 @@
 import { UseAutocompleteProps } from "@mui/material";
 import React from "react";
-declare type SyncOrAsync<T> = T | Promise<T>;
+export declare type SyncOrAsync<T> = T | Promise<T>;
 /**
  * @internal
  * @ignore
@@ -147,7 +147,7 @@ export interface UseTreeSelectProps<
   /**
    * Retrieves the child nodes of `node`.
    *
-   * @param node When `null`, {@link useTreeSelect} is requesting root select options.
+   * @param node When `null`, the caller is requesting root select options.
    *
    * @returns **Child** Nodes or a nullish value when `node` does not have children.
    *

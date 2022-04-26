@@ -15,8 +15,9 @@ export type {
 
 export { FreeSoloNode } from "./useTreeSelect";
 export type {
-  TreeSelectFreeSoloValueMapping,
   PathDirection,
+  SyncOrAsync,
+  TreeSelectFreeSoloValueMapping,
 } from "./useTreeSelect";
 
 // Default

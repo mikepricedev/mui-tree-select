@@ -1,12 +1,17 @@
 {
   "$schema": "https://typedoc.org/schema.json",
+  "disableSources": true,
   "entryPoints": ["./src/index.tsx"],
   "excludeInternal": true,
   "excludePrivate": true,
-  "includeVersion": true,
+  "githubPages": true,
   "name": "MUI Tree Select",
   "out": "./docs",
-  "plugin": ["typedoc-plugin-mdn-links", "typedoc-plugin-replace-text"],
+  "plugin": [
+    "typedoc-plugin-mdn-links",
+    "typedoc-plugin-replace-text",
+    "typedoc-cross-link-types"
+  ],
   "sort": ["required-first", "alphabetical"],
   "replaceText": {
     "inCodeCommentText": false,
@@ -16,7 +21,26 @@
       {
         "pattern": "(img\\/[A-z]+\\.png)",
         "replace": "../$1"
+      },
+      {
+        "pattern": "<!--\\s*REPLACE\\s*\\[([^\\]]+)\\]\\s*-->[^\\0]*?<!--\\s*END\\s*-->",
+        "replace": "$1"
       }
     ]
-  }
+  },
+  "cross-package-definitions": [
+    "@mui/material//AutocompleteProps => https://mui.com/material-ui/api/autocomplete/#props",
+    "@mui/material//ListItemButtonProps => https://mui.com/material-ui/api/list-item-button/#props",
+    "@mui/material//ListItemTextProps => https://mui.com/material-ui/api/list-item-text/#props",
+    "@mui/material//TooltipProps => https://mui.com/material-ui/api/tooltip/#props",
+    "@mui/material//AutocompleteValue => https://github.com/mui/material-ui/blob/85598e74b85a89a16f8bdf5b68346ca8d6b70557/packages/mui-core/src/AutocompleteUnstyled/useAutocomplete.d.ts#L30-L36",
+    "@mui/system//SxProps => https://mui.com/system/basics/#the-sx-prop",
+    "@mui/material//SvgIconProps => https://mui.com/material-ui/api/svg-icon/#props",
+    "@mui/material//AutocompleteRenderOptionState => https://github.com/mui/material-ui/blob/85598e74b85a89a16f8bdf5b68346ca8d6b70557/packages/mui-material/src/Autocomplete/Autocomplete.d.ts#L35-L38",
+    "@mui/material//ChipProps => https://mui.com/material-ui/api/chip/#props",
+    "@mui/material//IconButtonProps => https://mui.com/material-ui/api/icon-button/#props",
+    "@mui/material//PopperProps => https://mui.com/material-ui/api/popper/#props",
+    "@mui/material//AutocompleteRenderInputParams => https://github.com/mui/material-ui/blob/32192fbb6d511b79986731b3cf9dc09a27e0d3aa/packages/mui-material/src/Autocomplete/Autocomplete.d.ts#L47-L60",
+    "@mui/material//AutocompleteRenderGroupParams => https://github.com/mui/material-ui/blob/32192fbb6d511b79986731b3cf9dc09a27e0d3aa/packages/mui-material/src/Autocomplete/Autocomplete.d.ts#L41-L45"
+  ]
 }

@@ -221,7 +221,7 @@ export const PathIcon = forwardRef<SVGSVGElement, SvgIconProps>(
       </SvgIcon>
     );
   }
-);
+) as (props: SvgIconProps) => JSX.Element;
 
 const defaultPathIcon = <PathIcon fontSize="small" />;
 
@@ -269,7 +269,7 @@ export interface TreeSelectProps<
   /**
    * Prefix option label for a adding freeSolo values.
    *
-   * @default "Add: "
+   * @default `"Add: "`
    *
    */
   addFreeSoloText?: string;
@@ -277,23 +277,23 @@ export interface TreeSelectProps<
   /**
    * Override the default down branch icon tooltip `title`.
    *
-   * @default 'Enter'
+   * @default `"Enter"`
    */
   enterText?: string;
 
   /**
    * Override the default up branch icon tooltip `title`.
    *
-   * @default 'Exit'
+   * @default `"Exit"`
    */
   exitText?: string;
 
   /**
    * The icon to display in place of the default path icon.
    *
-   * @remarks Only rendered when `multiple === false`.
+   * Rendered when `multiple === false`.
    *
-   * @default <PathIcon fontSize="small" />
+   * @default `<PathIcon fontSize="small" />`
    */
   pathIcon?: React.ReactNode;
 
@@ -303,13 +303,14 @@ export interface TreeSelectProps<
   renderOption?: RenderOption<Node, FreeSolo>;
 }
 
-export const TreeSelect = <
+const _TreeSelect = <
   Node,
   Multiple extends boolean | undefined = undefined,
   DisableClearable extends boolean | undefined = undefined,
   FreeSolo extends boolean | undefined = undefined
 >(
-  props: TreeSelectProps<Node, Multiple, DisableClearable, FreeSolo>
+  props: TreeSelectProps<Node, Multiple, DisableClearable, FreeSolo>,
+  ref: React.Ref<unknown>
 ): JSX.Element => {
   const {
     addFreeSoloText = "Add: ",
@@ -520,8 +521,18 @@ export const TreeSelect = <
       renderInput={renderInput}
       renderOption={renderOption}
       renderTags={renderTags}
+      ref={ref}
     />
   );
 };
+
+export const TreeSelect = forwardRef(_TreeSelect) as <
+  Node,
+  Multiple extends boolean | undefined = undefined,
+  DisableClearable extends boolean | undefined = undefined,
+  FreeSolo extends boolean | undefined = undefined
+>(
+  props: TreeSelectProps<Node, Multiple, DisableClearable, FreeSolo>
+) => JSX.Element;
 
 export default TreeSelect;
