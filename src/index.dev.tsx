@@ -1,15 +1,20 @@
 import React, { useState } from "react";
 import ReactDOM from "react-dom";
-import _sampleData from "./sampleData.json";
-import TreeSelect, { FreeSoloNode } from "./index";
+import _sampleData from "./example/db/sampleData.json";
+import TreeSelect, {
+  FreeSoloNode,
+  DefaultOption,
+  getDefaultOptionProps,
+} from "./index";
 import {
+  Box,
   FormControl,
   FormControlLabel,
   FormHelperText,
   Switch,
   TextField,
+  Typography,
 } from "@mui/material";
-import { DefaultOption, getDefaultOptionProps } from "./TreeSelect";
 
 interface City {
   id: string;
@@ -99,110 +104,123 @@ const Sample: React.FC = () => {
   const [value, setValue] = useState<(Node | FreeSoloNode<Node>)[]>([]);
 
   return (
-    <div style={{ width: 450 }}>
-      <FormControl fullWidth>
-        <FormControlLabel
-          sx={{ m: 1 }}
-          control={
-            <Switch
-              checked={runAsync}
-              onChange={() => setRynAsync(!runAsync)}
-            />
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "center",
+        mt: 8,
+      }}
+    >
+      <div style={{ width: 450 }}>
+        {/* <FormControl fullWidth>
+          <FormControlLabel
+            sx={{ m: 1 }}
+            control={
+              <Switch
+                checked={runAsync}
+                onChange={() => setRynAsync(!runAsync)}
+              />
+            }
+            label="Run Async"
+          />
+          <FormHelperText>
+            Run "getChildren", "getParent", and "isBranch" async.
+          </FormHelperText>
+        </FormControl> */}
+        <Typography color={"primary"} variant="h4" align="center">
+          See Current Path by Hovering "Parent Option"
+        </Typography>
+        <TreeSelect
+          getChildren={(node) =>
+            syncOrAsync(
+              node
+                ? node.getChildren()
+                : sampleData.map((country) => new Node(country)),
+              runAsync
+            )
           }
-          label="Run Async"
+          open
+          getOptionDisabled={(option) =>
+            option.isBranch() && !option.getChildren()?.length
+          }
+          getParent={(node: Node) => syncOrAsync(node.getParent(), runAsync)}
+          isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
+          isOptionEqualToValue={(option, value) => {
+            return option instanceof FreeSoloNode
+              ? false
+              : option.isEqual(value);
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="City"
+              helperText="Select a city by its country and state."
+            />
+          )}
+          sx={{ m: 1, mt: 2, mb: 2 }}
         />
-        <FormHelperText>
-          Run "getChildren", "getParent", and "isBranch" async.
-        </FormHelperText>
-      </FormControl>
-      <TreeSelect
-        getChildren={(node) =>
-          syncOrAsync(
-            node
-              ? node.getChildren()
-              : sampleData.map((country) => new Node(country)),
-            runAsync
-          )
-        }
-        getOptionDisabled={(option) =>
-          option.isBranch() && !option.getChildren()?.length
-        }
-        getParent={(node: Node) => syncOrAsync(node.getParent(), runAsync)}
-        isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
-        isOptionEqualToValue={(option, value) => {
-          return option instanceof FreeSoloNode ? false : option.isEqual(value);
-        }}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label="City"
-            helperText="Select a city by its country and state."
-          />
-        )}
-        sx={{ m: 1, mt: 2, mb: 2 }}
-      />
-
-      <TreeSelect
-        sx={{ m: 1 }}
-        branch={branch}
-        onBranchChange={(_, branch) => void setBranch(branch)}
-        // Allow adding cities.
-        freeSolo={branch?.value && "cities" in branch.value}
-        addFreeSoloText="Add City: "
-        getChildren={(node) =>
-          syncOrAsync(
-            node
-              ? node.getChildren()
-              : sampleData.map((country) => new Node(country)),
-            runAsync
-          )
-        }
-        getParent={(node: Node) => syncOrAsync(node.getParent(), runAsync)}
-        getOptionDisabled={(option) => {
-          return option.isBranch() && !option.getChildren()?.length;
-        }}
-        isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
-        isOptionEqualToValue={(option, value) => {
-          return option instanceof FreeSoloNode
-            ? value instanceof FreeSoloNode &&
-                value.toString() === option.toString() &&
-                (option.parent === null || value.parent === null
-                  ? option.parent === value.parent
-                  : option.parent.isEqual(value.parent))
-            : value instanceof FreeSoloNode
-            ? false
-            : option.isEqual(value);
-        }}
-        multiple
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label="Cities"
-            helperText="Select multiple cities by their country and state."
-          />
-        )}
-        renderOption={(...args) => (
-          <DefaultOption
-            {...((props, node) => ({
-              ...props,
-              ListItemTextProps: {
-                ...props.ListItemTextProps,
-                secondary:
-                  node instanceof FreeSoloNode
-                    ? undefined
-                    : "states" in node.value
-                    ? `States ${node.getChildren()?.length || 0}`
-                    : "cities" in node.value
-                    ? `Cities ${node.getChildren()?.length || 0}`
-                    : undefined,
-              },
-            }))(getDefaultOptionProps(...args), args[1])}
-          />
-        )}
-        value={value}
-        onChange={(_, value) => void setValue(value)}
-      />
-    </div>
+        {/* <TreeSelect
+          sx={{ m: 1 }}
+          branch={branch}
+          onBranchChange={(_, branch) => void setBranch(branch)}
+          // Allow adding cities.
+          freeSolo={branch?.value && "cities" in branch.value}
+          addFreeSoloText="Add City: "
+          getChildren={(node) =>
+            syncOrAsync(
+              node
+                ? node.getChildren()
+                : sampleData.map((country) => new Node(country)),
+              runAsync
+            )
+          }
+          getParent={(node: Node) => syncOrAsync(node.getParent(), runAsync)}
+          getOptionDisabled={(option) => {
+            return option.isBranch() && !option.getChildren()?.length;
+          }}
+          isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
+          isOptionEqualToValue={(option, value) => {
+            return option instanceof FreeSoloNode
+              ? value instanceof FreeSoloNode &&
+                  value.toString() === option.toString() &&
+                  (option.parent === null || value.parent === null
+                    ? option.parent === value.parent
+                    : option.parent.isEqual(value.parent))
+              : value instanceof FreeSoloNode
+              ? false
+              : option.isEqual(value);
+          }}
+          multiple
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Cities"
+              helperText="Select multiple cities by their country and state."
+            />
+          )}
+          renderOption={(...args) => (
+            <DefaultOption
+              {...((props, node) => ({
+                ...props,
+                ListItemTextProps: {
+                  ...props.ListItemTextProps,
+                  secondary:
+                    node instanceof FreeSoloNode
+                      ? undefined
+                      : "states" in node.value
+                      ? `States ${node.getChildren()?.length || 0}`
+                      : "cities" in node.value
+                      ? `Cities ${node.getChildren()?.length || 0}`
+                      : undefined,
+                },
+              }))(getDefaultOptionProps(...args), args[1])}
+            />
+          )}
+          value={value}
+          onChange={(_, value) => void setValue(value)}
+        /> */}
+      </div>
+    </Box>
   );
 };
 

@@ -3,34 +3,61 @@ const fs = require("fs");
 const path = require("path");
 
 (async () => {
-  const res = await new Promise((resolve, reject) =>
-    https
-      .get(
-        "https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/countries%2Bstates%2Bcities.json",
-        resolve
-      )
-      .on("error", reject)
-  );
+  const [resJSON, resLicense] = await Promise.all([
+    new Promise((resolve, reject) =>
+      https
+        .get(
+          "https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/countries%2Bstates%2Bcities.json",
+          resolve
+        )
+        .on("error", reject)
+    ),
+    new Promise((resolve, reject) =>
+      https
+        .get(
+          "https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/LICENSE",
+          resolve
+        )
+        .on("error", reject)
+    ),
+  ]);
 
-  if (res.statusCode !== 200) {
-    throw new Error("Request Failed.\n" + `Status Code: ${statusCode}`);
+  if (resJSON.statusCode !== 200) {
+    throw new Error("Request Failed.\n" + `Status Code: ${resJSON.statusCode}`);
+  } else if (resLicense.statusCode !== 200) {
+    throw new Error(
+      "Request Failed.\n" + `Status Code: ${resLicense.statusCode}`
+    );
   }
 
-  const rawObj = await new Promise((resolve, reject) => {
-    let rawData = "";
-    res.setEncoding("utf8");
-    res.on("data", (chunk) => {
-      rawData += chunk;
-    });
+  const [rawObj, license] = await Promise.all([
+    new Promise((resolve, reject) => {
+      let rawData = "";
+      resJSON.setEncoding("utf8");
+      resJSON.on("data", (chunk) => {
+        rawData += chunk;
+      });
 
-    res.on("end", () => {
-      try {
-        resolve(JSON.parse(rawData));
-      } catch (e) {
-        reject(e);
-      }
-    });
-  });
+      resJSON.on("end", () => {
+        try {
+          resolve(JSON.parse(rawData));
+        } catch (e) {
+          reject(e);
+        }
+      });
+    }),
+    new Promise((resolve) => {
+      let rawData = "";
+      resLicense.setEncoding("utf8");
+      resLicense.on("data", (chunk) => {
+        rawData += chunk;
+      });
+
+      resLicense.on("end", () => {
+        resolve(rawData);
+      });
+    }),
+  ]);
 
   const db = rawObj.map(({ id: countryId, name, emoji, states = [] }) => ({
     id: countryId.toString(),
@@ -49,9 +76,16 @@ const path = require("path");
     }),
   }));
 
-  await fs.promises.writeFile(
-    path.resolve(__dirname, "../src/sampleData.json"),
-    JSON.stringify(db),
-    { flag: "w+" }
-  );
+  await Promise.all([
+    fs.promises.writeFile(
+      path.resolve(__dirname, "../src/example/db/sampleData.json"),
+      JSON.stringify(db),
+      { flag: "w+" }
+    ),
+    fs.promises.writeFile(
+      path.resolve(__dirname, "../src/example/db/sampleData_LICENSE.md"),
+      `#[Countries States Cities Database](${"https://github.com/dr5hn/countries-states-cities-database"})\n\n${license}`,
+      { flag: "w+" }
+    ),
+  ]);
 })();

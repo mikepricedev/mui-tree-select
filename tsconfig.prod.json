@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "declaration": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "target": "ES2019",
+    "module": "ES6"
+  },
+  "exclude": [
+    "src/**/*.dev.ts",
+    "src/**/*.dev.tsx",
+    "src/example/**/*.ts",
+    "src/example/**/*.tsx"
+  ]
+}

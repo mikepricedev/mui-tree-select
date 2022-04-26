@@ -1,0 +1,17 @@
+{
+  "name": "mui-tree-select-example",
+  "description": "MUI Tree Select Example",
+  "dependencies": {
+    "@emotion/react": "latest",
+    "@emotion/styled": "latest",
+    "@mui/icons-material": "^5.0.0",
+    "@mui/material": "^5.0.0",
+    "mui-tree-select": "@1.0.0-beta",
+    "react": "^17.0.0",
+    "react-dom": "^17.0.0"
+  },
+  "devDependencies": {
+    "react-scripts": "latest"
+  },
+  "title": "MUI Tree Select Example"
+}

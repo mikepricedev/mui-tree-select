@@ -1,0 +1,22 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["./src/index.tsx"],
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "includeVersion": true,
+  "name": "MUI Tree Select",
+  "out": "./docs",
+  "plugin": ["typedoc-plugin-mdn-links", "typedoc-plugin-replace-text"],
+  "sort": ["required-first", "alphabetical"],
+  "replaceText": {
+    "inCodeCommentText": false,
+    "inCodeCommentTags": false,
+    "inIncludedFiles": true,
+    "replacements": [
+      {
+        "pattern": "(img\\/[A-z]+\\.png)",
+        "replace": "../$1"
+      }
+    ]
+  }
+}

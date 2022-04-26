@@ -2,15 +2,11 @@ import {
   UseAutocompleteProps,
   AutocompleteValue,
   createFilterOptions,
-} from "@mui/base";
+} from "@mui/material";
 import useControlled from "@mui/utils/useControlled";
 import React, { useCallback, useMemo, useRef } from "react";
 import usePromise from "./usePromise";
 
-/**
- * @internal
- * @ignore
- */
 type SyncOrAsync<T> = T | Promise<T>;
 
 /**
@@ -73,10 +69,12 @@ export enum NodeType {
   UP_BRANCH,
 }
 
-export function asyncOrAsyncBlock<G extends Generator>(
+const asyncOrAsyncBlock = <G extends Generator>(
   it: G
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): G extends Generator<any, infer TReturn, any> ? SyncOrAsync<TReturn> : never {
+): G extends Generator<any, infer TReturn, any>
+  ? SyncOrAsync<TReturn>
+  : never => {
   return (function getReturn(
     result: IteratorResult<unknown | Promise<unknown>, unknown>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,7 +87,7 @@ export function asyncOrAsyncBlock<G extends Generator>(
       return getReturn(it.next(result.value));
     }
   })(it.next());
-}
+};
 
 /**
  * @internal
@@ -116,6 +114,10 @@ export class InternalOption<
  */
 export type PathDirection = "up" | "down";
 
+/**
+ * @internal
+ * @ignore
+ */
 export interface UseTreeSelectProps<
   Node,
   Multiple extends boolean | undefined,
@@ -224,14 +226,17 @@ export interface UseTreeSelectProps<
 
   /**
    * Error Handler for async return values from:
-    - {@link UseTreeSelectProps.getParent}
-    - {@link UseTreeSelectProps.getChildren}
-    - {@link UseTreeSelectProps.isBranch}
-    - {@link UseTreeSelectProps.isBranchSelectable}
+   * - {@link getParent}
+   * - {@link getChildren}
+   * - {@link isBranch}
    */
   onError?: (error: Error) => void;
 }
 
+/**
+ * @internal
+ * @ignore
+ */
 export interface UseTreeSelectReturn<
   Node,
   Multiple extends boolean | undefined,
@@ -316,6 +321,10 @@ const defaultGetOptionLabel = (node: any): string => String(node);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const defaultGetOptionDisabled = () => false;
 
+/**
+ * @internal
+ * @ignore
+ */
 export const useTreeSelect = <
   Node,
   Multiple extends boolean | undefined = undefined,

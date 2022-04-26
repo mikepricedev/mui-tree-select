@@ -1,0 +1,63 @@
+<!DOCTYPE html><html class="default"><head><meta charSet="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>MUI Tree Select - v1.0.0-beta</title><meta name="description" content="Documentation for MUI Tree Select - v1.0.0-beta"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="assets/style.css"/><link rel="stylesheet" href="assets/highlight.css"/><script async src="assets/search.js" id="search-script"></script></head><body><script>document.body.classList.add(localStorage.getItem("tsd-theme") || "os")</script><header><div class="tsd-page-toolbar"><div class="container"><div class="table-wrap"><div class="table-cell" id="tsd-search" data-base="."><div class="field"><label for="tsd-search-field" class="tsd-widget search no-caption">Search</label><input type="text" id="tsd-search-field"/></div><ul class="results"><li class="state loading">Preparing search index...</li><li class="state failure">The search index is not available</li></ul><a href="index.html" class="title">MUI Tree Select - v1.0.0-beta</a></div><div class="table-cell" id="tsd-widgets"><div id="tsd-filter"><a href="#" class="tsd-widget options no-caption" data-toggle="options">Options</a><div class="tsd-filter-group"><div class="tsd-select" id="tsd-filter-visibility"><span class="tsd-select-label">All</span><ul class="tsd-select-list"><li data-value="public">Public</li><li data-value="protected">Public/Protected</li><li data-value="private" class="selected">All</li></ul></div> <input type="checkbox" id="tsd-filter-inherited" checked/><label class="tsd-widget" for="tsd-filter-inherited">Inherited</label><input type="checkbox" id="tsd-filter-externals" checked/><label class="tsd-widget" for="tsd-filter-externals">Externals</label></div></div><a href="#" class="tsd-widget menu no-caption" data-toggle="menu">Menu</a></div></div></div></div><div class="tsd-page-title"><div class="container"><h1>MUI Tree Select - v1.0.0-beta </h1></div></div></header><div class="container container-main"><div class="row"><div class="col-8 col-content"><div class="tsd-panel tsd-typography">
+<a href="#mui-tree-select" id="mui-tree-select" style="color: inherit; text-decoration: none;">
+  <h1>MUI Tree Select</h1>
+</a>
+
+<a href="#description" id="description" style="color: inherit; text-decoration: none;">
+  <h2>Description</h2>
+</a>
+<p>A select component for tree data structures that provides a compact user interface for navigating a tree.</p>
+<p><img src="../img/navigate.png" alt="Navigate the Tree">
+<img src="../img/seeCurrentPath.png" alt="See Current Path">
+<img src="../img/selectLeafNodes.png" alt="Select Leaf Nodes">
+<img src="../img/seeValuePath.png" alt="See Value Path"></p>
+
+<a href="#usage" id="usage" style="color: inherit; text-decoration: none;">
+  <h2>Usage</h2>
+</a>
+<p>Check out a live example <a href="https://codesandbox.io/s/lucid-chaplygin-smyzk">here</a>.</p>
+
+<a href="#basic-requirements" id="basic-requirements" style="color: inherit; text-decoration: none;">
+  <h3>Basic Requirements</h3>
+</a>
+<p>Given the following tree node interface.</p>
+<pre><code><span class="hl-0">class</span><span class="hl-1"> </span><span class="hl-2">Node</span><span class="hl-1"> {</span><br/><span class="hl-1">  </span><span class="hl-0">constructor</span><span class="hl-1">(</span><span class="hl-3">value</span><span class="hl-1">, </span><span class="hl-3">parent</span><span class="hl-1"> = </span><span class="hl-0">null</span><span class="hl-1">, </span><span class="hl-3">children</span><span class="hl-1"> = </span><span class="hl-0">null</span><span class="hl-1">) {</span><br/><span class="hl-1">    </span><span class="hl-0">this</span><span class="hl-1">.</span><span class="hl-3">value</span><span class="hl-1"> = </span><span class="hl-3">value</span><span class="hl-1">;</span><br/><span class="hl-1">    </span><span class="hl-0">this</span><span class="hl-1">.</span><span class="hl-3">parent</span><span class="hl-1"> = </span><span class="hl-3">parent</span><span class="hl-1">;</span><br/><span class="hl-1">    </span><span class="hl-0">this</span><span class="hl-1">.</span><span class="hl-3">children</span><span class="hl-1"> = </span><span class="hl-3">children</span><span class="hl-1">;</span><br/><span class="hl-1">  }</span><br/><span class="hl-1">}</span>
+</code></pre>
+<ol>
+<li>Tell MUI Tree Select how to retrieve child nodes. <code>getChildren</code> should return nullish values when it is called with a leaf node.</li>
+</ol>
+<pre><code><span class="hl-0">const</span><span class="hl-1"> </span><span class="hl-4">rootNodes</span><span class="hl-1"> = [...] </span><span class="hl-5">// Array of Nodes;</span><br/><span class="hl-0">const</span><span class="hl-1"> </span><span class="hl-6">getChildren</span><span class="hl-1"> = (</span><span class="hl-3">node</span><span class="hl-1">) </span><span class="hl-0">=&gt;</span><span class="hl-1"> </span><span class="hl-3">node</span><span class="hl-1"> === </span><span class="hl-0">null</span><span class="hl-1"> ? </span><span class="hl-3">rootNodes</span><span class="hl-1"> : </span><span class="hl-3">node</span><span class="hl-1">.</span><span class="hl-3">children</span><span class="hl-1">;</span>
+</code></pre>
+<ol start="2">
+<li>Tell MUI Tree Select how to retrieve parent nodes.</li>
+</ol>
+<pre><code><span class="hl-0">const</span><span class="hl-1"> </span><span class="hl-6">getParent</span><span class="hl-1"> = (</span><span class="hl-3">node</span><span class="hl-1">) </span><span class="hl-0">=&gt;</span><span class="hl-1"> </span><span class="hl-3">node</span><span class="hl-1">.</span><span class="hl-3">parent</span><span class="hl-1">;</span>
+</code></pre>
+<ol start="3">
+<li>Implement <code>renderInput</code> from <a href="https://mui.com/material-ui/api/autocomplete">Autocomplete</a> props.</li>
+</ol>
+<pre><code><span class="hl-0">const</span><span class="hl-1"> </span><span class="hl-6">renderInput</span><span class="hl-1"> = (</span><span class="hl-3">params</span><span class="hl-1">) </span><span class="hl-0">=&gt;</span><span class="hl-1"> &lt;</span><span class="hl-2">TextField</span><span class="hl-1"> {...</span><span class="hl-2">params</span><span class="hl-1">} /&gt;;</span>
+</code></pre>
+<ol start="4">
+<li>Pass to the MUI Tree Select.</li>
+</ol>
+<pre><code><span class="hl-7">return</span><span class="hl-1"> &lt;</span><span class="hl-2">TreeSelect</span><br/><span class="hl-1">  </span><span class="hl-2">getChildren</span><span class="hl-1">={</span><span class="hl-3">getChildren</span><span class="hl-1">}</span><br/><span class="hl-1">  </span><span class="hl-2">getParent</span><span class="hl-1">={</span><span class="hl-3">getParent</span><span class="hl-1">}</span><br/><span class="hl-1">  </span><span class="hl-2">renderInput</span><span class="hl-1">={</span><span class="hl-3">renderInput</span><span class="hl-1">}</span><br/><span class="hl-1">/&gt;;</span>
+</code></pre>
+<!-- Full Interface can be found [here](docs/interfaces/TreeSelectProps.html). -->
+
+
+<a href="#notes" id="notes" style="color: inherit; text-decoration: none;">
+  <h2>Notes</h2>
+</a>
+
+<a href="#autocomplete" id="autocomplete" style="color: inherit; text-decoration: none;">
+  <h3>Autocomplete</h3>
+</a>
+<p>This package wraps the material-ui <a href="https://material-ui.com/components/autocomplete/">Autocomplete</a>. Many of props from this component are passed from <code>TreeSelect</code>.</p>
+
+<a href="#freesolonode" id="freesolonode" style="color: inherit; text-decoration: none;">
+  <h3>FreeSoloNode</h3>
+</a>
+<p><a href="https://mui.com/material-ui/react-autocomplete/#free-solo"><code>freeSolo</code></a> values are wrapped in the class <a href="docs/classes/FreeSoloNode.md">FreeSoloNode</a> to provided a reference to the <a href="FreeSoloNode.md#parent">parent</a> node under which the free solo value was created.</p>
+<p><code>FreeSoloNode</code> extends the native <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String">String</a> object. This <strong>disallows</strong> <code>&quot;es5&quot;</code> as a <a href="https://www.typescriptlang.org/tsconfig#target">target</a> based on the way the typescript transpiler converts <code>class</code> semantics to <code>function</code>.</p>
+</div></div><div class="col-4 col-menu menu-sticky-wrap menu-highlight"><nav class="tsd-navigation primary"><ul><li class="current"><a href="modules.html">Exports</a></li></ul></nav><nav class="tsd-navigation secondary menu-sticky"><ul><li class="tsd-kind-interface"><a href="interfaces/BaseDefaultOptionsProps.html" class="tsd-kind-icon">Base<wbr/>Default<wbr/>Options<wbr/>Props</a></li><li class="tsd-kind-function"><a href="modules.html#DefaultOption" class="tsd-kind-icon">Default<wbr/>Option</a></li><li class="tsd-kind-interface"><a href="interfaces/DownBranchDefaultOptionsProps.html" class="tsd-kind-icon">Down<wbr/>Branch<wbr/>Default<wbr/>Options<wbr/>Props</a></li><li class="tsd-kind-class tsd-has-type-parameter"><a href="classes/FreeSoloNode.html" class="tsd-kind-icon">Free<wbr/>Solo<wbr/>Node</a></li><li class="tsd-kind-type-alias"><a href="modules.html#PathDirection" class="tsd-kind-icon">Path<wbr/>Direction</a></li><li class="tsd-kind-variable"><a href="modules.html#PathIcon" class="tsd-kind-icon">Path<wbr/>Icon</a></li><li class="tsd-kind-type-alias tsd-has-type-parameter"><a href="modules.html#RenderOption" class="tsd-kind-icon">Render<wbr/>Option</a></li><li class="tsd-kind-function tsd-has-type-parameter"><a href="modules.html#TreeSelect" class="tsd-kind-icon">Tree<wbr/>Select</a></li><li class="tsd-kind-type-alias tsd-has-type-parameter"><a href="modules.html#TreeSelectFreeSoloValueMapping" class="tsd-kind-icon">Tree<wbr/>Select<wbr/>Free<wbr/>Solo<wbr/>Value<wbr/>Mapping</a></li><li class="tsd-kind-interface tsd-has-type-parameter"><a href="interfaces/TreeSelectProps.html" class="tsd-kind-icon">Tree<wbr/>Select<wbr/>Props</a></li><li class="tsd-kind-interface"><a href="interfaces/TreeSelectRenderOptionState.html" class="tsd-kind-icon">Tree<wbr/>Select<wbr/>Render<wbr/>Option<wbr/>State</a></li><li class="tsd-kind-interface"><a href="interfaces/UpBranchDefaultOptionsProps.html" class="tsd-kind-icon">Up<wbr/>Branch<wbr/>Default<wbr/>Options<wbr/>Props</a></li><li class="tsd-kind-reference"><a href="modules.html#default" class="tsd-kind-icon">default</a></li><li class="tsd-kind-function"><a href="modules.html#getDefaultOptionProps" class="tsd-kind-icon">get<wbr/>Default<wbr/>Option<wbr/>Props</a></li></ul></nav></div></div></div><footer class="with-border-bottom"><div class="container"><h2>Legend</h2><div class="tsd-legend-group"><ul class="tsd-legend"><li class="tsd-kind-property tsd-parent-kind-interface"><span class="tsd-kind-icon">Property</span></li></ul><ul class="tsd-legend"><li class="tsd-kind-property tsd-parent-kind-class"><span class="tsd-kind-icon">Property</span></li></ul></div><h2>Settings</h2><p>Theme <select id="theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></p></div></footer><div class="container tsd-generator"><p>Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></div><div class="overlay"></div><script src="assets/main.js"></script></body></html>
