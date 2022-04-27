@@ -8,12 +8,15 @@ import TreeSelect, {
 } from "./index";
 import {
   Box,
+  createTheme,
+  CssBaseline,
   FormControl,
   FormControlLabel,
   FormHelperText,
   Switch,
   TextField,
-  Typography,
+  ThemeProvider,
+  useMediaQuery,
 } from "@mui/material";
 
 interface City {
@@ -100,8 +103,20 @@ const syncOrAsync = function <T>(value: T, returnAsync: boolean) {
 const Sample: React.FC = () => {
   const [runAsync, setRynAsync] = useState(false);
 
-  const [branch, setBranch] = useState<Node | null>(null);
+  const [cityBranch, setCityBranch] = useState<Node | null>(null);
+  const [citesBranch, setCitesBranch] = useState<Node | null>(null);
+
   const [value, setValue] = useState<(Node | FreeSoloNode<Node>)[]>([]);
+
+  const getLabel = (branch: Node | null) => {
+    if (branch === null) {
+      return "Country";
+    } else if ("states" in branch.value) {
+      return "Country > State";
+    } else {
+      return "Country > State > City";
+    }
+  };
 
   return (
     <Box
@@ -112,7 +127,7 @@ const Sample: React.FC = () => {
       }}
     >
       <div style={{ width: 450 }}>
-        {/* <FormControl fullWidth>
+        <FormControl fullWidth>
           <FormControlLabel
             sx={{ m: 1 }}
             control={
@@ -126,11 +141,10 @@ const Sample: React.FC = () => {
           <FormHelperText>
             Run "getChildren", "getParent", and "isBranch" async.
           </FormHelperText>
-        </FormControl> */}
-        <Typography color={"primary"} variant="h4" align="center">
-          See Current Path by Hovering "Parent Option"
-        </Typography>
+        </FormControl>
         <TreeSelect
+          branch={cityBranch}
+          onBranchChange={(_, branch) => void setCityBranch(branch)}
           getChildren={(node) =>
             syncOrAsync(
               node
@@ -139,7 +153,6 @@ const Sample: React.FC = () => {
               runAsync
             )
           }
-          open
           getOptionDisabled={(option) =>
             option.isBranch() && !option.getChildren()?.length
           }
@@ -153,7 +166,7 @@ const Sample: React.FC = () => {
           renderInput={(params) => (
             <TextField
               {...params}
-              label="City"
+              label={getLabel(cityBranch)}
               helperText="Select a city by its country and state."
             />
           )}
@@ -161,10 +174,10 @@ const Sample: React.FC = () => {
         />
         <TreeSelect
           sx={{ m: 1 }}
-          branch={branch}
-          onBranchChange={(_, branch) => void setBranch(branch)}
+          branch={citesBranch}
+          onBranchChange={(_, branch) => void setCitesBranch(branch)}
           // Allow adding cities.
-          freeSolo={branch?.value && "cities" in branch.value}
+          freeSolo={citesBranch?.value && "cities" in citesBranch.value}
           addFreeSoloText="Add City: "
           getChildren={(node) =>
             syncOrAsync(
@@ -194,7 +207,7 @@ const Sample: React.FC = () => {
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Cities"
+              label={getLabel(citesBranch)}
               helperText="Select multiple cities by their country and state."
             />
           )}
@@ -224,4 +237,25 @@ const Sample: React.FC = () => {
   );
 };
 
-ReactDOM.render(<Sample />, document.getElementById("root"));
+const App = () => {
+  const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
+
+  const theme = React.useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode: prefersDarkMode ? "dark" : "light",
+        },
+      }),
+    [prefersDarkMode]
+  );
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Sample />
+    </ThemeProvider>
+  );
+};
+
+ReactDOM.render(<App />, document.getElementById("root"));

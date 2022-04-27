@@ -763,6 +763,24 @@ export const useTreeSelect = <
         ]
       );
 
+      // Prevent a selected value from filtering against branch options
+      // from which it does NOT belong.
+      if (
+        !multiple &&
+        value &&
+        state.getOptionLabel(
+          value as InternalOption<Node, FreeSolo, NodeType>
+        ) === state.inputValue &&
+        !options.find((option) =>
+          isOptionEqualToValue(
+            option,
+            value as InternalOption<Node, FreeSolo, NodeType>
+          )
+        )
+      ) {
+        return options;
+      }
+
       const filteredOptions = filterOptionsProp([...optionsMap.keys()], {
         ...state,
         getOptionLabel: getOptionLabelProp,
@@ -778,7 +796,13 @@ export const useTreeSelect = <
         ? [...filteredOptions, ...freeSoloOptions]
         : [upBranch, ...filteredOptions, ...freeSoloOptions];
     },
-    [filterOptionsProp, getOptionLabelProp]
+    [
+      filterOptionsProp,
+      getOptionLabelProp,
+      isOptionEqualToValue,
+      multiple,
+      value,
+    ]
   );
 
   const selectedOption = useRef<InternalOption<
