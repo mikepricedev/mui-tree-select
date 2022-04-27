@@ -1,6 +1,6 @@
 {
   "name": "mui-tree-select",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Material-UI auto select component for tree data structures.",
   "keywords": [
     "material",
@@ -12,7 +12,7 @@
   "homepage": "https://mikepricedev.github.io/mui-tree-select",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mikepricedev/mui-tree-select"
+    "url": "https://github.com/mikepricedev/mui-tree-select.git"
   },
   "license": "MIT",
   "author": "Michael Price <mikepricedev@gmail.com>",
