@@ -118,6 +118,12 @@ export interface UseTreeSelectProps<
    */
   branch?: Node | null;
   /**
+   * Delimits branches in path labels.
+   *
+   * @default `" > "`
+   */
+  branchDelimiter?: string;
+  /**
    * The default branch. Use when the component is not controlled.
    */
   defaultBranch?: Node | null;
@@ -126,9 +132,9 @@ export interface UseTreeSelectProps<
    */
   freeSolo?: FreeSolo;
   /**
-   * Used to determine the string value of a branch path.
+   * Used to determine the string value of a path.  `path` ascends ancestors.
    *
-   * `path` ascends ancestors.
+   * Uses {@link getOptionLabel} and {@link branchDelimiter} by default.
    */
   getPathLabel?: (
     path: ReadonlyArray<Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>>
@@ -252,6 +258,7 @@ export declare const useTreeSelect: <
   FreeSolo extends boolean | undefined = undefined
 >({
   branch: branchProp,
+  branchDelimiter,
   componentName,
   defaultBranch,
   defaultValue,

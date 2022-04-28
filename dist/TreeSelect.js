@@ -31,7 +31,9 @@ export const DefaultOption = (props) => {
   const {
     pathDirection = "",
     pathLabel = "",
+    enterIcon = null,
     enterText = "",
+    exitIcon = null,
     exitText = "",
     TooltipProps: tooltipProps,
     ListItemTextProps: listItemTextProps,
@@ -46,16 +48,22 @@ export const DefaultOption = (props) => {
           null,
           React.createElement(
             Tooltip,
-            { ...tooltipProps, title: exitText },
-            React.createElement(
-              ListItemIcon,
-              null,
-              React.createElement(ChevronLeftIcon, null)
-            )
+            {
+              title: exitText,
+              ...(tooltipProps === null || tooltipProps === void 0
+                ? void 0
+                : tooltipProps.exit),
+            },
+            React.createElement(ListItemIcon, null, exitIcon)
           ),
           React.createElement(
             Tooltip,
-            { title: pathLabel },
+            {
+              title: pathLabel,
+              ...(tooltipProps === null || tooltipProps === void 0
+                ? void 0
+                : tooltipProps.currentPath),
+            },
             React.createElement(ListItemText, { ...listItemTextProps })
           )
         )
@@ -63,7 +71,7 @@ export const DefaultOption = (props) => {
     pathDirection === "down" &&
       React.createElement(
         Tooltip,
-        { ...tooltipProps, title: enterText },
+        { title: enterText, ...tooltipProps },
         React.createElement(
           ListItemIcon,
           {
@@ -71,7 +79,7 @@ export const DefaultOption = (props) => {
               minWidth: "auto",
             },
           },
-          React.createElement(ChevronRightIcon, null)
+          enterIcon
         )
       )
   );
@@ -102,13 +110,17 @@ export const getDefaultOptionProps = (
       pathDirection: "up",
       pathLabel: state.pathLabel,
       divider: true,
+      exitIcon: state.exitIcon,
       exitText: state.exitText,
+      TooltipProps: state.TooltipProps,
     };
   } else if (state.pathDirection === "down") {
     return {
       ...baseProps,
       pathDirection: "down",
+      enterIcon: state.enterIcon,
       enterText: state.enterText,
+      TooltipProps: state.TooltipProps,
     };
   } else {
     return baseProps;
@@ -136,6 +148,8 @@ export const PathIcon = forwardRef(function PathIcon(props, ref) {
     })
   );
 });
+const defaultEnterIcon = React.createElement(ChevronRightIcon, null);
+const defaultExitIcon = React.createElement(ChevronLeftIcon, null);
 const defaultPathIcon = React.createElement(PathIcon, { fontSize: "small" });
 // Cloned from Autocomplete
 // https://github.com/mui/material-ui/blob/b3645b3fd11dc26a06ea370a41b5bac1026c6792/packages/mui-material/src/Autocomplete/Autocomplete.js#L251-L258
@@ -161,8 +175,11 @@ const _TreeSelect = (props, ref) => {
   const {
     addFreeSoloText = "Add: ",
     branch,
+    branchDelimiter,
     defaultBranch,
+    enterIcon = defaultEnterIcon,
     enterText = "Enter",
+    exitIcon = defaultExitIcon,
     exitText = "Exit",
     getChildren,
     getParent,
@@ -175,6 +192,8 @@ const _TreeSelect = (props, ref) => {
     pathIcon = defaultPathIcon,
     renderOption: renderOptionProp = defaultRenderOption,
     renderInput: renderInputProp,
+    renderTags: renderTagsProp,
+    TooltipProps,
     ...restProps
   } = props;
   const {
@@ -193,6 +212,7 @@ const _TreeSelect = (props, ref) => {
     isBranch,
     onBranchChange,
     onError,
+    branchDelimiter,
     ...restProps,
   });
   const classesClone = useUtilityClasses(props.classes);
@@ -238,6 +258,25 @@ const _TreeSelect = (props, ref) => {
     noOptions,
     noOptionsText,
   ]);
+  const toolTipProps = useMemo(() => {
+    if (!TooltipProps) {
+      return undefined;
+    } else if (
+      "enter" in TooltipProps ||
+      "exit" in TooltipProps ||
+      "currentPath" in TooltipProps ||
+      "valuePath" in TooltipProps
+    ) {
+      return TooltipProps;
+    } else {
+      return {
+        enter: TooltipProps,
+        exit: TooltipProps,
+        currentPath: TooltipProps,
+        valuePath: TooltipProps,
+      };
+    }
+  }, [TooltipProps]);
   const renderInput = useMemo(() => {
     if (props.multiple) {
       return renderInputProp;
@@ -254,7 +293,12 @@ const _TreeSelect = (props, ref) => {
                   null,
                   React.createElement(
                     Tooltip,
-                    { title: getPathLabel(restTreeOpts.value, true) },
+                    {
+                      title: getPathLabel(restTreeOpts.value, true),
+                      ...(toolTipProps === null || toolTipProps === void 0
+                        ? void 0
+                        : toolTipProps.valuePath),
+                    },
                     pathIcon ||
                       React.createElement(PathIcon, { fontSize: "small" })
                   ),
@@ -273,6 +317,9 @@ const _TreeSelect = (props, ref) => {
     props.multiple,
     renderInputProp,
     restTreeOpts.value,
+    toolTipProps === null || toolTipProps === void 0
+      ? void 0
+      : toolTipProps.valuePath,
   ]);
   const renderOption = useCallback(
     ({ onClick, ...props }, option, state) => {
@@ -298,9 +345,34 @@ const _TreeSelect = (props, ref) => {
               ? getPathLabel(option, true)
               : getPathLabel(option, false),
           disabled: isUpBranch ? false : !!props["aria-disabled"],
+          enterIcon,
           enterText,
+          exitIcon,
           exitText,
           optionLabel: getOptionLabel(option),
+          TooltipProps: isUpBranch
+            ? (toolTipProps === null || toolTipProps === void 0
+                ? void 0
+                : toolTipProps.exit) ||
+              (toolTipProps === null || toolTipProps === void 0
+                ? void 0
+                : toolTipProps.currentPath)
+              ? {
+                  exit:
+                    toolTipProps === null || toolTipProps === void 0
+                      ? void 0
+                      : toolTipProps.exit,
+                  currentPath:
+                    toolTipProps === null || toolTipProps === void 0
+                      ? void 0
+                      : toolTipProps.currentPath,
+                }
+              : undefined
+            : isDownBranch
+            ? toolTipProps === null || toolTipProps === void 0
+              ? void 0
+              : toolTipProps.enter
+            : undefined,
         }
       );
     },
@@ -308,20 +380,47 @@ const _TreeSelect = (props, ref) => {
       renderOptionProp,
       addFreeSoloText,
       getPathLabel,
+      enterIcon,
       enterText,
+      exitIcon,
       exitText,
       getOptionLabel,
+      toolTipProps === null || toolTipProps === void 0
+        ? void 0
+        : toolTipProps.exit,
+      toolTipProps === null || toolTipProps === void 0
+        ? void 0
+        : toolTipProps.currentPath,
+      toolTipProps === null || toolTipProps === void 0
+        ? void 0
+        : toolTipProps.enter,
       handleOptionClick,
     ]
   );
   const renderTags = useMemo(() => {
+    if (renderTagsProp) {
+      return (value, getTagProps) =>
+        renderTagsProp(
+          value.map(({ node }) => node),
+          getTagProps,
+          {
+            getPathLabel: (index) => getPathLabel(value[index], true),
+          }
+        );
+    }
     return (value, getTagProps) =>
       value.map((option, index) => {
         const { key, ...tagProps } = getTagProps({ index });
         const title = getPathLabel(option, true);
         return React.createElement(
           Tooltip,
-          { key: key, title: title },
+          {
+            title: title,
+            ...(toolTipProps === null || toolTipProps === void 0
+              ? void 0
+              : toolTipProps.valuePath),
+            key: key,
+          },
           React.createElement(Chip, {
             label: getOptionLabel(option),
             size: props.size || "medium",
@@ -330,7 +429,16 @@ const _TreeSelect = (props, ref) => {
           })
         );
       });
-  }, [getPathLabel, getOptionLabel, props.ChipProps, props.size]);
+  }, [
+    renderTagsProp,
+    getPathLabel,
+    toolTipProps === null || toolTipProps === void 0
+      ? void 0
+      : toolTipProps.valuePath,
+    getOptionLabel,
+    props.size,
+    props.ChipProps,
+  ]);
   return React.createElement(
     Autocomplete,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

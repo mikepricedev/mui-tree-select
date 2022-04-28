@@ -127,6 +127,16 @@ const Sample: React.FC = () => {
       }}
     >
       <div style={{ width: 450 }}>
+        {/* <Typography
+          sx={{
+            mb: 2,
+          }}
+          color="primary"
+          variant="h4"
+          align="center"
+        >
+          Supports Multiple Values
+        </Typography> */}
         <FormControl fullWidth>
           <FormControlLabel
             sx={{ m: 1 }}
@@ -170,10 +180,8 @@ const Sample: React.FC = () => {
               helperText="Select a city by its country and state."
             />
           )}
-          sx={{ m: 1, mt: 2, mb: 2 }}
         />
         <TreeSelect
-          sx={{ m: 1 }}
           branch={citesBranch}
           onBranchChange={(_, branch) => void setCitesBranch(branch)}
           // Allow adding cities.

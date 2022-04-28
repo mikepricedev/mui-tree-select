@@ -155,6 +155,13 @@ export interface UseTreeSelectProps<
   branch?: Node | null;
 
   /**
+   * Delimits branches in path labels.
+   *
+   * @default `" > "`
+   */
+  branchDelimiter?: string;
+
+  /**
    * The default branch. Use when the component is not controlled.
    */
   defaultBranch?: Node | null;
@@ -165,9 +172,9 @@ export interface UseTreeSelectProps<
   freeSolo?: FreeSolo;
 
   /**
-   * Used to determine the string value of a branch path.
+   * Used to determine the string value of a path.  `path` ascends ancestors.
    *
-   * `path` ascends ancestors.
+   * Uses {@link getOptionLabel} and {@link branchDelimiter} by default.
    */
   getPathLabel?: (
     path: ReadonlyArray<Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>>
@@ -333,6 +340,7 @@ export const useTreeSelect = <
   FreeSolo extends boolean | undefined = undefined
 >({
   branch: branchProp,
+  branchDelimiter = " > ",
   componentName = "useTreeSelect",
   defaultBranch,
   defaultValue,
@@ -719,11 +727,11 @@ export const useTreeSelect = <
         })();
 
         return rest.reduce((label, node) => {
-          return `${getOptionLabelProp(node)} > ${label}`;
+          return `${getOptionLabelProp(node)}${branchDelimiter}${label}`;
         }, getOptionLabelProp(first));
       }
     },
-    [getPathLabelProp, getOptionLabelProp]
+    [getPathLabelProp, getOptionLabelProp, branchDelimiter]
   );
 
   const groupBy = useMemo<Return["groupBy"]>(() => {

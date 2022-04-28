@@ -8,6 +8,7 @@ import TreeSelect, {
   getDefaultOptionProps,
 } from "mui-tree-select";
 import {
+  Box,
   CssBaseline,
   FormControl,
   FormControlLabel,
@@ -208,11 +209,6 @@ const Sample = () => {
     </div>
   );
 };
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-  },
-});
 const App = () => {
   const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
   const theme = React.useMemo(
@@ -227,7 +223,15 @@ const App = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Sample />
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          mt: 8,
+        }}
+      >
+        <Sample />
+      </Box>
     </ThemeProvider>
   );
 };

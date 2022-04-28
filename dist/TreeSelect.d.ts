@@ -6,6 +6,7 @@ import {
   ListItemButtonProps,
   ListItemTextProps,
   SvgIconProps,
+  AutocompleteRenderGetTagProps,
 } from "@mui/material";
 import {
   UseTreeSelectProps,
@@ -15,16 +16,19 @@ import {
 export interface BaseDefaultOptionsProps
   extends Omit<ListItemButtonProps<"li">, "children"> {
   ListItemTextProps: ListItemTextProps;
-  TooltipProps?: Omit<TooltipProps, "children" | "title">;
 }
 export interface UpBranchDefaultOptionsProps extends BaseDefaultOptionsProps {
+  exitIcon: React.ReactNode;
   exitText: string;
   pathLabel: string;
   pathDirection: Extract<PathDirection, "up">;
+  TooltipProps?: Pick<IndividualTooltipProps, "exit" | "currentPath">;
 }
 export interface DownBranchDefaultOptionsProps extends BaseDefaultOptionsProps {
+  enterIcon: React.ReactNode;
   enterText: string;
   pathDirection: Extract<PathDirection, "down">;
+  TooltipProps?: Omit<Partial<TooltipProps>, "children">;
 }
 /**
  * Default Option Component.
@@ -35,15 +39,21 @@ export declare const DefaultOption: (
     | DownBranchDefaultOptionsProps
     | BaseDefaultOptionsProps
 ) => JSX.Element;
-export interface TreeSelectRenderOptionState
-  extends AutocompleteRenderOptionState {
+export interface TreeSelectRenderOptionState<
+  Direction extends PathDirection = PathDirection
+> extends AutocompleteRenderOptionState {
   addFreeSoloText: string;
   pathLabel: string;
   disabled: boolean;
+  enterIcon: React.ReactNode;
   enterText: string;
+  exitIcon: React.ReactNode;
   exitText: string;
   optionLabel: string;
-  pathDirection?: PathDirection;
+  pathDirection?: Direction;
+  TooltipProps?: Direction extends "up"
+    ? Pick<IndividualTooltipProps, "exit" | "currentPath">
+    : Omit<Partial<TooltipProps>, "children">;
 }
 export declare type RenderOption<Node, FreeSolo extends boolean | undefined> = (
   props: React.HTMLAttributes<HTMLLIElement> & {
@@ -52,6 +62,9 @@ export declare type RenderOption<Node, FreeSolo extends boolean | undefined> = (
   option: Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
   state: TreeSelectRenderOptionState
 ) => React.ReactNode;
+export interface RenderTagsState {
+  getPathLabel: (index: number) => string;
+}
 /**
  * Returns props for {@link DefaultOption} from arguments of {@link RenderOption}
  */
@@ -60,12 +73,26 @@ export declare const getDefaultOptionProps: (
     key: React.Key;
   },
   option: any,
-  state: TreeSelectRenderOptionState
+  state: TreeSelectRenderOptionState<PathDirection>
 ) =>
   | UpBranchDefaultOptionsProps
   | DownBranchDefaultOptionsProps
   | BaseDefaultOptionsProps;
 export declare const PathIcon: (props: SvgIconProps) => JSX.Element;
+/**
+ * Individual customize props for {@link https://mui.com/material-ui/react-tooltip | Tooltip} elements in TreeSelect.
+ *
+ * @property `enter` - Tooltip around the enter icon
+ * @property `exit` - Tooltip around the exit icon
+ * @property `currentPath` - Tooltip for current branch path.
+ * @property `valuePath` - Tooltip for the selected value path or paths when `multiple === true`
+ */
+export interface IndividualTooltipProps {
+  enter?: Omit<Partial<TooltipProps>, "children">;
+  exit?: Omit<Partial<TooltipProps>, "children">;
+  currentPath?: Omit<Partial<TooltipProps>, "children">;
+  valuePath?: Omit<Partial<TooltipProps>, "children">;
+}
 export interface TreeSelectProps<
   Node,
   Multiple extends boolean | undefined,
@@ -93,11 +120,23 @@ export interface TreeSelectProps<
    */
   addFreeSoloText?: string;
   /**
+   * The icon to display in place of the default enter icon.
+   *
+   * @default `<ChevronRightIcon />`
+   */
+  enterIcon?: React.ReactNode;
+  /**
    * Override the default down branch icon tooltip `title`.
    *
    * @default `"Enter"`
    */
   enterText?: string;
+  /**
+   * The icon to display in place of the default exit icon.
+   *
+   * @default `<ChevronLeftIcon />`
+   */
+  exitIcon?: React.ReactNode;
   /**
    * Override the default up branch icon tooltip `title`.
    *
@@ -116,6 +155,20 @@ export interface TreeSelectProps<
    *  Render the option, use `getOptionLabel` by default.
    */
   renderOption?: RenderOption<Node, FreeSolo>;
+  /**
+   * Render the selected value.
+   */
+  renderTags?: (
+    value: (Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>)[],
+    getTagProps: AutocompleteRenderGetTagProps,
+    state: RenderTagsState
+  ) => React.ReactNode;
+  /**
+   * Props applied to the {@link https://mui.com/material-ui/react-tooltip | Tooltip} elements.
+   */
+  TooltipProps?:
+    | Omit<Partial<TooltipProps>, "children">
+    | IndividualTooltipProps;
 }
 export declare const TreeSelect: <
   Node_1,

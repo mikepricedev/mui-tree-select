@@ -2,7 +2,7 @@
 
 ## Description
 
-A select component for tree data structures that provides a compact user interface for navigating a tree.
+A [MUI](https://mui.com/) v5 compatible select that provides a compact user interface for navigating a tree structures.
 
 <!-- REPLACE [<iframe src="https://codesandbox.io/embed/github/mikepricedev/mui-tree-select/tree/main/example?autoresize=1&fontsize=14&hidenavigation=1&theme=dark&view=preview"
      style="width:100%; height:500px; border:0; border-radius: 4px; overflow:hidden;"
@@ -15,6 +15,7 @@ A select component for tree data structures that provides a compact user interfa
 ![See Current Path](img/seeCurrentPath.png)
 ![Select Leaf Nodes](img/selectLeafNodes.png)
 ![See Value Path](img/seeValuePath.png)
+![Supports Multiple Values](img/multipleValues.jpg)
 
 <!-- END -->
 

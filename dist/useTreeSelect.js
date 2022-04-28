@@ -86,6 +86,7 @@ const defaultGetOptionDisabled = () => false;
  */
 export const useTreeSelect = ({
   branch: branchProp,
+  branchDelimiter = " > ",
   componentName = "useTreeSelect",
   defaultBranch,
   defaultValue,
@@ -393,11 +394,11 @@ export const useTreeSelect = ({
           return [to.path[0], to.path.slice(1)];
         })();
         return rest.reduce((label, node) => {
-          return `${getOptionLabelProp(node)} > ${label}`;
+          return `${getOptionLabelProp(node)}${branchDelimiter}${label}`;
         }, getOptionLabelProp(first));
       }
     },
-    [getPathLabelProp, getOptionLabelProp]
+    [getPathLabelProp, getOptionLabelProp, branchDelimiter]
   );
   const groupBy = useMemo(() => {
     if (groupByProp) {
@@ -429,6 +430,16 @@ export const useTreeSelect = ({
         },
         [null, new Map(), []]
       );
+      // Prevent a selected value from filtering against branch options
+      // from which it does NOT belong.
+      if (
+        !multiple &&
+        value &&
+        state.getOptionLabel(value) === state.inputValue &&
+        !options.find((option) => isOptionEqualToValue(option, value))
+      ) {
+        return options;
+      }
       const filteredOptions = filterOptionsProp([...optionsMap.keys()], {
         ...state,
         getOptionLabel: getOptionLabelProp,
@@ -438,7 +449,13 @@ export const useTreeSelect = ({
         ? [...filteredOptions, ...freeSoloOptions]
         : [upBranch, ...filteredOptions, ...freeSoloOptions];
     },
-    [filterOptionsProp, getOptionLabelProp]
+    [
+      filterOptionsProp,
+      getOptionLabelProp,
+      isOptionEqualToValue,
+      multiple,
+      value,
+    ]
   );
   const selectedOption = useRef(null);
   const onHighlightChange = useCallback(

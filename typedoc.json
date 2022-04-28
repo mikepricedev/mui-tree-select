@@ -33,6 +33,7 @@
     "@mui/material//ListItemButtonProps => https://mui.com/material-ui/api/list-item-button/#props",
     "@mui/material//ListItemTextProps => https://mui.com/material-ui/api/list-item-text/#props",
     "@mui/material//TooltipProps => https://mui.com/material-ui/api/tooltip/#props",
+    "@mui/material//Tooltip => https://mui.com/material-ui/react-tooltip/",
     "@mui/material//AutocompleteValue => https://github.com/mui/material-ui/blob/85598e74b85a89a16f8bdf5b68346ca8d6b70557/packages/mui-core/src/AutocompleteUnstyled/useAutocomplete.d.ts#L30-L36",
     "@mui/system//SxProps => https://mui.com/system/basics/#the-sx-prop",
     "@mui/material//SvgIconProps => https://mui.com/material-ui/api/svg-icon/#props",

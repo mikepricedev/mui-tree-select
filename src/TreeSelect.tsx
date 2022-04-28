@@ -18,6 +18,7 @@ import {
   PaperProps,
   getAutocompleteUtilityClass,
   unstable_composeClasses as composeClasses,
+  AutocompleteRenderGetTagProps,
 } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
@@ -60,18 +61,21 @@ type NonNullableAutocompleteProp<
 export interface BaseDefaultOptionsProps
   extends Omit<ListItemButtonProps<"li">, "children"> {
   ListItemTextProps: ListItemTextProps;
-  TooltipProps?: Omit<TooltipProps, "children" | "title">;
 }
 
 export interface UpBranchDefaultOptionsProps extends BaseDefaultOptionsProps {
+  exitIcon: React.ReactNode;
   exitText: string;
   pathLabel: string;
   pathDirection: Extract<PathDirection, "up">;
+  TooltipProps?: Pick<IndividualTooltipProps, "exit" | "currentPath">;
 }
 
 export interface DownBranchDefaultOptionsProps extends BaseDefaultOptionsProps {
+  enterIcon: React.ReactNode;
   enterText: string;
   pathDirection: Extract<PathDirection, "down">;
+  TooltipProps?: Omit<Partial<TooltipProps>, "children">;
 }
 
 /**
@@ -86,19 +90,21 @@ export const DefaultOption = (
   const {
     pathDirection = "",
     pathLabel = "",
+    enterIcon = null,
     enterText = "",
+    exitIcon = null,
     exitText = "",
     TooltipProps: tooltipProps,
     ListItemTextProps: listItemTextProps,
     ...listItemButtonProps
   } = props as Omit<
-    Omit<UpBranchDefaultOptionsProps, "pathDirection"> &
-      Omit<DownBranchDefaultOptionsProps, "pathDirection">,
+    | Omit<UpBranchDefaultOptionsProps, "pathDirection">
+    | Omit<DownBranchDefaultOptionsProps, "pathDirection">,
     "pathLabel" | "enterText" | "exitText"
   > &
     Partial<
-      Pick<UpBranchDefaultOptionsProps, "pathLabel" | "exitText"> &
-        Pick<DownBranchDefaultOptionsProps, "enterText"> &
+      Pick<UpBranchDefaultOptionsProps, "pathLabel" | "exitIcon" | "exitText"> &
+        Pick<DownBranchDefaultOptionsProps, "enterIcon" | "enterText"> &
         (
           | Pick<UpBranchDefaultOptionsProps, "pathDirection">
           | Pick<DownBranchDefaultOptionsProps, "pathDirection">
@@ -109,12 +115,26 @@ export const DefaultOption = (
     <ListItemButton {...listItemButtonProps} component="li" dense>
       {pathDirection === "up" ? (
         <>
-          <Tooltip {...tooltipProps} title={exitText}>
-            <ListItemIcon>
-              <ChevronLeftIcon />
-            </ListItemIcon>
+          <Tooltip
+            title={exitText}
+            {...(
+              tooltipProps as Pick<
+                IndividualTooltipProps,
+                "exit" | "currentPath"
+              >
+            )?.exit}
+          >
+            <ListItemIcon>{exitIcon}</ListItemIcon>
           </Tooltip>
-          <Tooltip title={pathLabel}>
+          <Tooltip
+            title={pathLabel}
+            {...(
+              tooltipProps as Pick<
+                IndividualTooltipProps,
+                "exit" | "currentPath"
+              >
+            )?.currentPath}
+          >
             <ListItemText {...listItemTextProps} />
           </Tooltip>
         </>
@@ -123,13 +143,16 @@ export const DefaultOption = (
       )}
 
       {pathDirection === "down" && (
-        <Tooltip {...tooltipProps} title={enterText}>
+        <Tooltip
+          title={enterText}
+          {...(tooltipProps as Omit<Partial<TooltipProps>, "children">)}
+        >
           <ListItemIcon
             sx={{
               minWidth: "auto",
             }}
           >
-            <ChevronRightIcon />
+            {enterIcon}
           </ListItemIcon>
         </Tooltip>
       )}
@@ -137,15 +160,21 @@ export const DefaultOption = (
   );
 };
 
-export interface TreeSelectRenderOptionState
-  extends AutocompleteRenderOptionState {
+export interface TreeSelectRenderOptionState<
+  Direction extends PathDirection = PathDirection
+> extends AutocompleteRenderOptionState {
   addFreeSoloText: string;
   pathLabel: string;
   disabled: boolean;
+  enterIcon: React.ReactNode;
   enterText: string;
+  exitIcon: React.ReactNode;
   exitText: string;
   optionLabel: string;
-  pathDirection?: PathDirection;
+  pathDirection?: Direction;
+  TooltipProps?: Direction extends "up"
+    ? Pick<IndividualTooltipProps, "exit" | "currentPath">
+    : Omit<Partial<TooltipProps>, "children">;
 }
 
 export type RenderOption<Node, FreeSolo extends boolean | undefined> = (
@@ -153,6 +182,10 @@ export type RenderOption<Node, FreeSolo extends boolean | undefined> = (
   option: Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
   state: TreeSelectRenderOptionState
 ) => React.ReactNode;
+
+export interface RenderTagsState {
+  getPathLabel: (index: number) => string;
+}
 
 /**
  * Returns props for {@link DefaultOption} from arguments of {@link RenderOption}
@@ -185,14 +218,18 @@ export const getDefaultOptionProps = (
       pathDirection: "up",
       pathLabel: state.pathLabel,
       divider: true,
+      exitIcon: state.exitIcon,
       exitText: state.exitText,
-    };
+      TooltipProps: state.TooltipProps,
+    } as UpBranchDefaultOptionsProps;
   } else if (state.pathDirection === "down") {
     return {
       ...baseProps,
       pathDirection: "down",
+      enterIcon: state.enterIcon,
       enterText: state.enterText,
-    };
+      TooltipProps: state.TooltipProps,
+    } as DownBranchDefaultOptionsProps;
   } else {
     return baseProps;
   }
@@ -223,7 +260,25 @@ export const PathIcon = forwardRef<SVGSVGElement, SvgIconProps>(
   }
 ) as (props: SvgIconProps) => JSX.Element;
 
+const defaultEnterIcon = <ChevronRightIcon />;
+const defaultExitIcon = <ChevronLeftIcon />;
+
 const defaultPathIcon = <PathIcon fontSize="small" />;
+
+/**
+ * Individual customize props for {@link https://mui.com/material-ui/react-tooltip | Tooltip} elements in TreeSelect.
+ *
+ * @property `enter` - Tooltip around the enter icon
+ * @property `exit` - Tooltip around the exit icon
+ * @property `currentPath` - Tooltip for current branch path.
+ * @property `valuePath` - Tooltip for the selected value path or paths when `multiple === true`
+ */
+export interface IndividualTooltipProps {
+  enter?: Omit<Partial<TooltipProps>, "children">;
+  exit?: Omit<Partial<TooltipProps>, "children">;
+  currentPath?: Omit<Partial<TooltipProps>, "children">;
+  valuePath?: Omit<Partial<TooltipProps>, "children">;
+}
 
 // Cloned from Autocomplete
 // https://github.com/mui/material-ui/blob/b3645b3fd11dc26a06ea370a41b5bac1026c6792/packages/mui-material/src/Autocomplete/Autocomplete.js#L251-L258
@@ -275,11 +330,25 @@ export interface TreeSelectProps<
   addFreeSoloText?: string;
 
   /**
+   * The icon to display in place of the default enter icon.
+   *
+   * @default `<ChevronRightIcon />`
+   */
+  enterIcon?: React.ReactNode;
+
+  /**
    * Override the default down branch icon tooltip `title`.
    *
    * @default `"Enter"`
    */
   enterText?: string;
+
+  /**
+   * The icon to display in place of the default exit icon.
+   *
+   * @default `<ChevronLeftIcon />`
+   */
+  exitIcon?: React.ReactNode;
 
   /**
    * Override the default up branch icon tooltip `title`.
@@ -301,6 +370,22 @@ export interface TreeSelectProps<
    *  Render the option, use `getOptionLabel` by default.
    */
   renderOption?: RenderOption<Node, FreeSolo>;
+
+  /**
+   * Render the selected value.
+   */
+  renderTags?: (
+    value: (Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>)[],
+    getTagProps: AutocompleteRenderGetTagProps,
+    state: RenderTagsState
+  ) => React.ReactNode;
+
+  /**
+   * Props applied to the {@link https://mui.com/material-ui/react-tooltip | Tooltip} elements.
+   */
+  TooltipProps?:
+    | Omit<Partial<TooltipProps>, "children">
+    | IndividualTooltipProps;
 }
 
 const _TreeSelect = <
@@ -315,8 +400,11 @@ const _TreeSelect = <
   const {
     addFreeSoloText = "Add: ",
     branch,
+    branchDelimiter,
     defaultBranch,
+    enterIcon = defaultEnterIcon,
     enterText = "Enter",
+    exitIcon = defaultExitIcon,
     exitText = "Exit",
     getChildren,
     getParent,
@@ -329,6 +417,8 @@ const _TreeSelect = <
     pathIcon = defaultPathIcon,
     renderOption: renderOptionProp = defaultRenderOption,
     renderInput: renderInputProp,
+    renderTags: renderTagsProp,
+    TooltipProps,
     ...restProps
   } = props;
 
@@ -348,6 +438,7 @@ const _TreeSelect = <
     isBranch,
     onBranchChange,
     onError,
+    branchDelimiter,
     ...restProps,
   });
 
@@ -390,6 +481,26 @@ const _TreeSelect = <
     noOptionsText,
   ]);
 
+  const toolTipProps = useMemo<IndividualTooltipProps | undefined>(() => {
+    if (!TooltipProps) {
+      return undefined;
+    } else if (
+      "enter" in TooltipProps ||
+      "exit" in TooltipProps ||
+      "currentPath" in TooltipProps ||
+      "valuePath" in TooltipProps
+    ) {
+      return TooltipProps;
+    } else {
+      return {
+        enter: TooltipProps,
+        exit: TooltipProps,
+        currentPath: TooltipProps,
+        valuePath: TooltipProps,
+      } as IndividualTooltipProps;
+    }
+  }, [TooltipProps]);
+
   const renderInput = useMemo<typeof renderInputProp>(() => {
     if (props.multiple) {
       return renderInputProp;
@@ -412,6 +523,7 @@ const _TreeSelect = <
                         >,
                         true
                       )}
+                      {...toolTipProps?.valuePath}
                     >
                       {/* eslint-disable-next-line
                     @typescript-eslint/no-explicit-any */}
@@ -433,6 +545,7 @@ const _TreeSelect = <
     props.multiple,
     renderInputProp,
     restTreeOpts.value,
+    toolTipProps?.valuePath,
   ]);
 
   const renderOption = useCallback<
@@ -465,9 +578,21 @@ const _TreeSelect = <
               ? getPathLabel(option, true)
               : getPathLabel(option, false),
           disabled: isUpBranch ? false : !!props["aria-disabled"],
+          enterIcon,
           enterText,
+          exitIcon,
           exitText,
           optionLabel: getOptionLabel(option),
+          TooltipProps: isUpBranch
+            ? toolTipProps?.exit || toolTipProps?.currentPath
+              ? {
+                  exit: toolTipProps?.exit,
+                  currentPath: toolTipProps?.currentPath,
+                }
+              : undefined
+            : isDownBranch
+            ? toolTipProps?.enter
+            : undefined,
         }
       );
     },
@@ -475,9 +600,14 @@ const _TreeSelect = <
       renderOptionProp,
       addFreeSoloText,
       getPathLabel,
+      enterIcon,
       enterText,
+      exitIcon,
       exitText,
       getOptionLabel,
+      toolTipProps?.exit,
+      toolTipProps?.currentPath,
+      toolTipProps?.enter,
       handleOptionClick,
     ]
   );
@@ -491,6 +621,17 @@ const _TreeSelect = <
       FreeSolo
     >
   >(() => {
+    if (renderTagsProp) {
+      return (value, getTagProps) =>
+        renderTagsProp(
+          value.map(({ node }) => node),
+          getTagProps,
+          {
+            getPathLabel: (index) => getPathLabel(value[index], true),
+          }
+        );
+    }
+
     return (value, getTagProps) =>
       value.map((option, index) => {
         const { key, ...tagProps } = getTagProps({ index });
@@ -498,7 +639,7 @@ const _TreeSelect = <
         const title = getPathLabel(option, true);
 
         return (
-          <Tooltip key={key} title={title}>
+          <Tooltip title={title} {...toolTipProps?.valuePath} key={key}>
             <Chip
               label={getOptionLabel(option)}
               size={props.size || "medium"}
@@ -508,7 +649,14 @@ const _TreeSelect = <
           </Tooltip>
         );
       });
-  }, [getPathLabel, getOptionLabel, props.ChipProps, props.size]);
+  }, [
+    renderTagsProp,
+    getPathLabel,
+    toolTipProps?.valuePath,
+    getOptionLabel,
+    props.size,
+    props.ChipProps,
+  ]);
 
   return (
     <Autocomplete

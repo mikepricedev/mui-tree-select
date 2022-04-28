@@ -7,6 +7,7 @@ export {
 export type {
   BaseDefaultOptionsProps,
   DownBranchDefaultOptionsProps,
+  IndividualTooltipProps,
   RenderOption,
   TreeSelectProps,
   TreeSelectRenderOptionState,
