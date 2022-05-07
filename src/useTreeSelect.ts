@@ -229,14 +229,6 @@ export interface UseTreeSelectProps<
     branchNode: Node | null,
     direction: PathDirection
   ) => void;
-
-  /**
-   * Error Handler for async return values from:
-   * - {@link getParent}
-   * - {@link getChildren}
-   * - {@link isBranch}
-   */
-  onError?: (error: Error) => void;
 }
 
 /**
@@ -354,7 +346,6 @@ export const useTreeSelect = <
   isBranch: isBranchProp,
   isOptionEqualToValue: isOptionEqualToValueProp,
   multiple,
-  onError,
   onBranchChange,
   onChange: onChangeProp,
   onClose: onCloseProp,
@@ -432,7 +423,7 @@ export const useTreeSelect = <
     }
   }, [curBranch, getParent]);
 
-  const pathResult = usePromise(pathArg, onError);
+  const pathResult = usePromise(pathArg);
 
   const optionsResult = usePromise(
     useMemo(() => {
@@ -519,8 +510,7 @@ export const useTreeSelect = <
       }
 
       return asyncOrAsyncBlock(getOpts());
-    }, [curBranch, getChildren, pathArg, isBranch]),
-    onError
+    }, [curBranch, getChildren, pathArg, isBranch])
   );
 
   const valueResult = usePromise(
@@ -572,8 +562,7 @@ export const useTreeSelect = <
               path
             );
       }
-    }, [curValue, getParent, multiple]),
-    onError
+    }, [curValue, getParent, multiple])
   );
 
   const value = useMemo(() => {

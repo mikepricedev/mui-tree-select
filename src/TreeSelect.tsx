@@ -412,7 +412,6 @@ const _TreeSelect = <
     loadingText = "Loading…",
     noOptionsText = "No options",
     onBranchChange,
-    onError,
     PaperComponent: PaperComponentProp = Paper,
     pathIcon = defaultPathIcon,
     renderOption: renderOptionProp = defaultRenderOption,
@@ -437,7 +436,6 @@ const _TreeSelect = <
     getParent,
     isBranch,
     onBranchChange,
-    onError,
     branchDelimiter,
     ...restProps,
   });

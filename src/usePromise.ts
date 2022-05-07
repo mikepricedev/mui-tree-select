@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 
 const usePromise = <Result = unknown, ErrorType = Error>(
-  promise: Promise<Result> | Result,
-  onError?: (error: ErrorType) => void
+  promise: Promise<Result> | Result
 ): {
   loading: boolean;
   error: ErrorType | null;
@@ -33,9 +32,7 @@ const usePromise = <Result = unknown, ErrorType = Error>(
           if (cancelled) {
             return;
           }
-          if (onError) {
-            onError(error as ErrorType);
-          }
+
           setState(([results, errors]) => {
             errors.set(promise, error as ErrorType);
             return [results, errors];
@@ -51,7 +48,7 @@ const usePromise = <Result = unknown, ErrorType = Error>(
         errors.delete(promise);
       }
     };
-  }, [errors, onError, promise, results]);
+  }, [errors, promise, results]);
 
   if (promise instanceof Promise) {
     return {
