@@ -304,9 +304,9 @@ const AutocompleteNoOptions = styled("div", {
 
 export interface TreeSelectProps<
   Node,
-  Multiple extends boolean | undefined,
-  DisableClearable extends boolean | undefined,
-  FreeSolo extends boolean | undefined
+  Multiple extends boolean | undefined = undefined,
+  DisableClearable extends boolean | undefined = undefined,
+  FreeSolo extends boolean | undefined = undefined
 > extends UseTreeSelectProps<Node, Multiple, DisableClearable, FreeSolo>,
     Omit<
       AutocompleteProps<

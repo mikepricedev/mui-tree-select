@@ -13,7 +13,7 @@ export type SyncOrAsync<T> = T | Promise<T>;
  * @internal
  * @ignore
  */
-export type NonNullableUseAutocompleteProp<
+type NonNullableUseAutocompleteProp<
   Prop extends keyof UseAutocompleteProps<
     Node,
     Multiple,
@@ -27,23 +27,6 @@ export type NonNullableUseAutocompleteProp<
 > = Required<
   UseAutocompleteProps<Node, Multiple, DisableClearable, FreeSolo>
 >[Prop];
-
-/**
- * @internal
- * @ignore
- */
-export type NullableUseAutocompleteProp<
-  Prop extends keyof UseAutocompleteProps<
-    Node,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >,
-  Node,
-  Multiple extends boolean | undefined = undefined,
-  DisableClearable extends boolean | undefined = undefined,
-  FreeSolo extends boolean | undefined = undefined
-> = UseAutocompleteProps<Node, Multiple, DisableClearable, FreeSolo>[Prop];
 
 /**
  * Wrapper for free solo values.
@@ -114,6 +97,21 @@ export class InternalOption<
  * Indicates the tree navigation direction. `"up"` in the direction of ancestors and `"down"`in the direction of descendants.
  */
 export type PathDirection = "up" | "down";
+
+/**
+ * Utility type that gives the tree select value type.
+ */
+export type TreeSelectValue<
+  Node,
+  Multiple extends boolean | undefined,
+  DisableClearable extends boolean | undefined,
+  FreeSolo extends boolean | undefined
+> = AutocompleteValue<
+  Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
+  Multiple,
+  DisableClearable,
+  false
+>;
 
 /**
  * @internal

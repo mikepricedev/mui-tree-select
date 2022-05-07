@@ -19,6 +19,7 @@ export type {
   PathDirection,
   SyncOrAsync,
   TreeSelectFreeSoloValueMapping,
+  TreeSelectValue,
 } from "./useTreeSelect";
 
 // Default
