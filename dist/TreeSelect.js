@@ -187,7 +187,6 @@ const _TreeSelect = (props, ref) => {
     loadingText = "Loading…",
     noOptionsText = "No options",
     onBranchChange,
-    onError,
     PaperComponent: PaperComponentProp = Paper,
     pathIcon = defaultPathIcon,
     renderOption: renderOptionProp = defaultRenderOption,
@@ -211,7 +210,6 @@ const _TreeSelect = (props, ref) => {
     getParent,
     isBranch,
     onBranchChange,
-    onError,
     branchDelimiter,
     ...restProps,
   });

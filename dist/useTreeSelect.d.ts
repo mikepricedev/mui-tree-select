@@ -1,40 +1,6 @@
-import { UseAutocompleteProps } from "@mui/material";
+import { UseAutocompleteProps, AutocompleteValue } from "@mui/material";
 import React from "react";
 export declare type SyncOrAsync<T> = T | Promise<T>;
-/**
- * @internal
- * @ignore
- */
-export declare type NonNullableUseAutocompleteProp<
-  Prop extends keyof UseAutocompleteProps<
-    Node,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >,
-  Node,
-  Multiple extends boolean | undefined = undefined,
-  DisableClearable extends boolean | undefined = undefined,
-  FreeSolo extends boolean | undefined = undefined
-> = Required<
-  UseAutocompleteProps<Node, Multiple, DisableClearable, FreeSolo>
->[Prop];
-/**
- * @internal
- * @ignore
- */
-export declare type NullableUseAutocompleteProp<
-  Prop extends keyof UseAutocompleteProps<
-    Node,
-    Multiple,
-    DisableClearable,
-    FreeSolo
-  >,
-  Node,
-  Multiple extends boolean | undefined = undefined,
-  DisableClearable extends boolean | undefined = undefined,
-  FreeSolo extends boolean | undefined = undefined
-> = UseAutocompleteProps<Node, Multiple, DisableClearable, FreeSolo>[Prop];
 /**
  * Wrapper for free solo values.
  *
@@ -79,6 +45,20 @@ export declare class InternalOption<
  * Indicates the tree navigation direction. `"up"` in the direction of ancestors and `"down"`in the direction of descendants.
  */
 export declare type PathDirection = "up" | "down";
+/**
+ * Utility type that gives the tree select value type.
+ */
+export declare type TreeSelectValue<
+  Node,
+  Multiple extends boolean | undefined,
+  DisableClearable extends boolean | undefined,
+  FreeSolo extends boolean | undefined
+> = AutocompleteValue<
+  Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
+  Multiple,
+  DisableClearable,
+  false
+>;
 /**
  * @internal
  * @ignore
@@ -160,6 +140,7 @@ export interface UseTreeSelectProps<
    *
    * Returning a nullish value indicates that `node` is a **Leaf** Node.
    *
+   * @warning Rejections must be handled when returning a {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise | Promise}.
    */
   getChildren: (node: Node | null) => SyncOrAsync<Node[] | null | undefined>;
   /**
@@ -168,6 +149,8 @@ export interface UseTreeSelectProps<
    * @returns **Branch** Node parent of `node` or a nullish value when `node` does not have a parent.
    *
    * Returning a nullish value indicates that `node` is a root select option.
+   *
+   * @warning Rejections must be handled when returning a {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise | Promise}.
    */
   getParent: (node: Node) => SyncOrAsync<Node | null | undefined>;
   /**
@@ -186,13 +169,6 @@ export interface UseTreeSelectProps<
     branchNode: Node | null,
     direction: PathDirection
   ) => void;
-  /**
-   * Error Handler for async return values from:
-   * - {@link getParent}
-   * - {@link getChildren}
-   * - {@link isBranch}
-   */
-  onError?: (error: Error) => void;
 }
 /**
  * @internal
@@ -274,7 +250,6 @@ export declare const useTreeSelect: <
   isBranch: isBranchProp,
   isOptionEqualToValue: isOptionEqualToValueProp,
   multiple,
-  onError,
   onBranchChange,
   onChange: onChangeProp,
   onClose: onCloseProp,

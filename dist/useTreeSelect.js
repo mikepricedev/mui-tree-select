@@ -102,7 +102,6 @@ export const useTreeSelect = ({
   isBranch: isBranchProp,
   isOptionEqualToValue: isOptionEqualToValueProp,
   multiple,
-  onError,
   onBranchChange,
   onChange: onChangeProp,
   onClose: onCloseProp,
@@ -166,7 +165,7 @@ export const useTreeSelect = ({
       return path;
     }
   }, [curBranch, getParent]);
-  const pathResult = usePromise(pathArg, onError);
+  const pathResult = usePromise(pathArg);
   const optionsResult = usePromise(
     useMemo(() => {
       function* getOpts() {
@@ -236,8 +235,7 @@ export const useTreeSelect = ({
         });
       }
       return asyncOrAsyncBlock(getOpts());
-    }, [curBranch, getChildren, pathArg, isBranch]),
-    onError
+    }, [curBranch, getChildren, pathArg, isBranch])
   );
   const valueResult = usePromise(
     useMemo(() => {
@@ -272,8 +270,7 @@ export const useTreeSelect = ({
             )
           : new InternalOption(curValue, NodeType.LEAF, path);
       }
-    }, [curValue, getParent, multiple]),
-    onError
+    }, [curValue, getParent, multiple])
   );
   const value = useMemo(() => {
     var _a;

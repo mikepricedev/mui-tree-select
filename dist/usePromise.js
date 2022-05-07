@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-const usePromise = (promise, onError) => {
+const usePromise = (promise) => {
   var _a;
   const [[results, errors], setState] = useState([new Map(), new Map()]);
   useEffect(() => {
@@ -20,9 +20,6 @@ const usePromise = (promise, onError) => {
           if (cancelled) {
             return;
           }
-          if (onError) {
-            onError(error);
-          }
           setState(([results, errors]) => {
             errors.set(promise, error);
             return [results, errors];
@@ -37,7 +34,7 @@ const usePromise = (promise, onError) => {
         errors.delete(promise);
       }
     };
-  }, [errors, onError, promise, results]);
+  }, [errors, promise, results]);
   if (promise instanceof Promise) {
     return {
       loading: !results.has(promise) && !errors.has(promise),
