@@ -200,6 +200,7 @@ export interface UseTreeSelectProps<
    *
    * Returning a nullish value indicates that `node` is a **Leaf** Node.
    *
+   * @warning Rejections must be handled when returning a {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise | Promise}.
    */
   getChildren: (node: Node | null) => SyncOrAsync<Node[] | null | undefined>;
 
@@ -209,6 +210,8 @@ export interface UseTreeSelectProps<
    * @returns **Branch** Node parent of `node` or a nullish value when `node` does not have a parent.
    *
    * Returning a nullish value indicates that `node` is a root select option.
+   *
+   * @warning Rejections must be handled when returning a {@link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise | Promise}.
    */
   getParent: (node: Node) => SyncOrAsync<Node | null | undefined>;
 
