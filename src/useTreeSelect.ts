@@ -396,16 +396,18 @@ export const useTreeSelect = <
     state: "open",
   });
 
-  const isBranch = useMemo<Props["isBranch"]>(
-    () =>
-      isBranchProp ||
-      ((node) => {
-        const result = getChildren(node);
-        if (result instanceof Promise) {
-          return result.then((result) => !!result);
-        }
-        return !!result;
-      }),
+  const isBranch = useCallback<Props["isBranch"]>(
+    (node) =>
+      (
+        isBranchProp ||
+        ((node) => {
+          const result = getChildren(node);
+          if (result instanceof Promise) {
+            return result.then((result) => !!result);
+          }
+          return !!result;
+        })
+      )(node),
     [getChildren, isBranchProp]
   );
 
@@ -724,17 +726,20 @@ export const useTreeSelect = <
     [getPathLabelProp, getOptionLabelProp, branchDelimiter]
   );
 
-  const groupBy = useMemo<Return["groupBy"]>(() => {
-    if (groupByProp) {
-      return ({ node, type }) => {
-        if (type === NodeType.UP_BRANCH) {
-          return "";
-        } else {
-          return groupByProp(node);
-        }
-      };
-    }
-  }, [groupByProp]);
+  // Will NEVER be called unless groupByProp is defined
+  const handleGroupBy = useCallback<NonNullable<Return["groupBy"]>>(
+    ({ node, type }) => {
+      if (type === NodeType.UP_BRANCH) {
+        return "";
+      } else {
+        // Will never be called unless groupByProp is defined
+        return (groupByProp as Props["groupBy"])(node);
+      }
+    },
+    [groupByProp]
+  );
+  // handleGroupBy is only assigned to groupBy when groupByProp IS defined
+  const groupBy = groupByProp && handleGroupBy;
 
   const noOptions = useRef<boolean>(
     !options.length ||
@@ -908,359 +913,366 @@ export const useTreeSelect = <
     []
   );
 
-  const onChange = useMemo<Return["onChange"]>(() => {
-    const handleBranchChange = (
-      event: React.SyntheticEvent<Element, Event>,
-      option: InternalOption<Node, FreeSolo>
-    ): boolean => {
-      const isUpBranch = option.type === NodeType.UP_BRANCH;
+  const onChange = useCallback<Return["onChange"]>(
+    (...args) => {
+      const handleBranchChange = (
+        event: React.SyntheticEvent<Element, Event>,
+        option: InternalOption<Node, FreeSolo>
+      ): boolean => {
+        const isUpBranch = option.type === NodeType.UP_BRANCH;
 
-      if (isUpBranch || option.type === NodeType.DOWN_BRANCH) {
-        const node = isUpBranch
-          ? option.path[0] ?? null
-          : (option.node as Node);
+        if (isUpBranch || option.type === NodeType.DOWN_BRANCH) {
+          const node = isUpBranch
+            ? option.path[0] ?? null
+            : (option.node as Node);
 
-        if (onBranchChange) {
-          onBranchChange(event, node, isUpBranch ? "up" : "down");
+          if (onBranchChange) {
+            onBranchChange(event, node, isUpBranch ? "up" : "down");
+          }
+
+          setBranch(node);
+
+          return true;
         }
 
-        setBranch(node);
+        return false;
+      };
 
-        return true;
-      }
+      /**
+       * Allows for recursive call when `autoSelect` and `freeSolo` are `true` and `reason` is "blur" to determine if auto select is selecting an option or creating a free solo value.
+       *
+       * @internal
+       * @ignore
+       * */
+      const handleChange = (
+        args: Parameters<Return["onChange"]>,
+        reasonIsBlur: boolean
+      ): void => {
+        type Value = AutocompleteValue<
+          Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
+          Multiple,
+          DisableClearable,
+          false
+        >;
 
-      return false;
-    };
+        const [event, , reason] = args;
 
-    /**
-     * Allows for recursive call when `autoSelect` and `freeSolo` are `true` and `reason` is "blur" to determine if auto select is selecting an option or creating a free solo value.
-     *
-     * @internal
-     * @ignore
-     * */
-    const handleChange = (
-      args: Parameters<Return["onChange"]>,
-      reasonIsBlur: boolean
-    ): void => {
-      type Value = AutocompleteValue<
-        Node | TreeSelectFreeSoloValueMapping<Node, FreeSolo>,
-        Multiple,
-        DisableClearable,
-        false
-      >;
+        if (multiple) {
+          switch (reason) {
+            case "selectOption": {
+              const [, rawValues, , details] = args as Parameters<
+                NonNullableUseAutocompleteProp<
+                  "onChange",
+                  InternalOption<Node, FreeSolo>,
+                  true,
+                  DisableClearable,
+                  false
+                >
+              >;
 
-      const [event, , reason] = args;
+              const [newValue] = rawValues.slice(-1);
 
-      if (multiple) {
-        switch (reason) {
-          case "selectOption": {
-            const [, rawValues, , details] = args as Parameters<
-              NonNullableUseAutocompleteProp<
-                "onChange",
-                InternalOption<Node, FreeSolo>,
-                true,
-                DisableClearable,
-                false
-              >
-            >;
+              const values = rawValues.map(({ node }) => node);
 
-            const [newValue] = rawValues.slice(-1);
+              // Selected Branch
+              if (handleBranchChange(event, newValue)) {
+                break;
+              }
 
-            const values = rawValues.map(({ node }) => node);
+              if (onChangeProp) {
+                (
+                  onChangeProp as NonNullable<
+                    UseTreeSelectProps<
+                      Node,
+                      true,
+                      DisableClearable,
+                      FreeSolo
+                    >["onChange"]
+                  >
+                )(
+                  event,
+                  values,
+                  reasonIsBlur ? "blur" : reason,
+                  details
+                    ? {
+                        ...details,
+                        option: newValue.node,
+                      }
+                    : details
+                );
+              }
 
-            // Selected Branch
-            if (handleBranchChange(event, newValue)) {
+              setValue(values as Value);
+
               break;
             }
-
-            if (onChangeProp) {
-              (
-                onChangeProp as NonNullable<
-                  UseTreeSelectProps<
-                    Node,
-                    true,
-                    DisableClearable,
-                    FreeSolo
-                  >["onChange"]
+            case "createOption": {
+              // make copy of value
+              const [, [...rawValues], , details] = args as Parameters<
+                NonNullableUseAutocompleteProp<
+                  "onChange",
+                  InternalOption<Node, FreeSolo>,
+                  true,
+                  DisableClearable,
+                  true
                 >
-              )(
-                event,
-                values,
-                reasonIsBlur ? "blur" : reason,
-                details
-                  ? {
-                      ...details,
-                      option: newValue.node,
-                    }
-                  : details
-              );
-            }
+              >;
 
-            setValue(values as Value);
+              const [freeSoloValue] = rawValues.splice(-1) as [string];
+              const freeSoloNode = new FreeSoloNode(freeSoloValue, curBranch);
 
-            break;
-          }
-          case "createOption": {
-            // make copy of value
-            const [, [...rawValues], , details] = args as Parameters<
-              NonNullableUseAutocompleteProp<
-                "onChange",
-                InternalOption<Node, FreeSolo>,
-                true,
-                DisableClearable,
-                true
-              >
-            >;
-
-            const [freeSoloValue] = rawValues.splice(-1) as [string];
-            const freeSoloNode = new FreeSoloNode(freeSoloValue, curBranch);
-
-            const values = [
-              ...(rawValues as InternalOption<Node, FreeSolo, NodeType>[]).map(
-                ({ node }) => node
-              ),
-              freeSoloNode,
-            ];
-
-            if (onChangeProp) {
-              (
-                onChangeProp as NonNullable<
-                  UseTreeSelectProps<
-                    Node,
-                    true,
-                    DisableClearable,
-                    true
-                  >["onChange"]
-                >
-              )(
-                event,
-                values,
-                reasonIsBlur ? "blur" : reason,
-                details
-                  ? {
-                      ...details,
-                      option: freeSoloNode,
-                    }
-                  : details
-              );
-            }
-
-            setValue(values as Value);
-
-            break;
-          }
-          case "blur": {
-            const [, rawValues, , details] = args as Parameters<
-              NonNullableUseAutocompleteProp<
-                "onChange",
-                InternalOption<Node, FreeSolo>,
-                true,
-                DisableClearable,
-                FreeSolo
-              >
-            >;
-
-            const [newValue] = rawValues.slice(-1);
-
-            handleChange(
-              [
-                event,
-                args[1],
-                typeof newValue === "string" ? "createOption" : "selectOption",
-                details,
-              ],
-              true
-            );
-
-            break;
-          }
-          case "removeOption":
-          case "clear": {
-            const [, rawValues, , details] = args as Parameters<
-              NonNullableUseAutocompleteProp<
-                "onChange",
-                InternalOption<Node, FreeSolo>,
-                true,
-                DisableClearable,
-                false
-              >
-            >;
-
-            const values = rawValues.map(({ node }) => node);
-
-            if (onChangeProp) {
-              (
-                onChangeProp as NonNullable<
-                  UseTreeSelectProps<
-                    Node,
-                    true,
-                    DisableClearable,
-                    FreeSolo
-                  >["onChange"]
-                >
-              )(
-                event,
-                values,
-                reason,
-                details
-                  ? {
-                      ...details,
-                      option: details.option.node,
-                    }
-                  : details
-              );
-            }
-
-            setValue(values as Value);
-
-            break;
-          }
-        }
-      } else {
-        switch (reason) {
-          case "selectOption": {
-            const [, value, , details] = args as Parameters<
-              NonNullableUseAutocompleteProp<
-                "onChange",
-                InternalOption<Node, FreeSolo>,
-                false,
-                true,
-                false
-              >
-            >;
-
-            // Selected Branch
-            if (handleBranchChange(event, value)) {
-              break;
-            }
-
-            if (onChangeProp) {
-              (
-                onChangeProp as NonNullable<
-                  UseTreeSelectProps<Node, false, false, FreeSolo>["onChange"]
-                >
-              )(
-                event,
-                value.node,
-                reasonIsBlur ? "blur" : reason,
-                details
-                  ? {
-                      ...details,
-                      option: value.node,
-                    }
-                  : details
-              );
-            }
-
-            setValue(value.node as Value);
-
-            break;
-          }
-          case "createOption": {
-            const [, freeSoloValue, , details] = args as Parameters<
-              NonNullableUseAutocompleteProp<
-                "onChange",
-                InternalOption<Node, true>,
-                false,
-                DisableClearable,
-                true
-              >
-            >;
-
-            const freeSoloNode = new FreeSoloNode(
-              freeSoloValue as string,
-              curBranch
-            );
-
-            if (onChangeProp) {
-              (
-                onChangeProp as NonNullable<
-                  UseTreeSelectProps<
-                    Node,
-                    false,
-                    DisableClearable,
-                    true
-                  >["onChange"]
-                >
-              )(
-                event,
+              const values = [
+                ...(
+                  rawValues as InternalOption<Node, FreeSolo, NodeType>[]
+                ).map(({ node }) => node),
                 freeSoloNode,
-                reasonIsBlur ? "blur" : reason,
-                details
-                  ? {
-                      ...details,
-                      option: freeSoloNode,
-                    }
-                  : details
-              );
+              ];
+
+              if (onChangeProp) {
+                (
+                  onChangeProp as NonNullable<
+                    UseTreeSelectProps<
+                      Node,
+                      true,
+                      DisableClearable,
+                      true
+                    >["onChange"]
+                  >
+                )(
+                  event,
+                  values,
+                  reasonIsBlur ? "blur" : reason,
+                  details
+                    ? {
+                        ...details,
+                        option: freeSoloNode,
+                      }
+                    : details
+                );
+              }
+
+              setValue(values as Value);
+
+              break;
             }
-
-            setValue(freeSoloNode as Value);
-
-            break;
-          }
-          case "blur": {
-            const [, newValue, , details] = args as Parameters<
-              NonNullableUseAutocompleteProp<
-                "onChange",
-                InternalOption<Node, FreeSolo>,
-                false,
-                DisableClearable,
-                true
-              >
-            >;
-            handleChange(
-              [
-                event,
-                args[1],
-                typeof newValue === "string" ? "createOption" : "selectOption",
-                details,
-              ],
-              true
-            );
-
-            break;
-          }
-          case "removeOption": //  Note remove only fires for multiple
-          case "clear": {
-            const [, , , details] = args as Parameters<
-              NonNullableUseAutocompleteProp<
-                "onChange",
-                InternalOption<Node, FreeSolo>,
-                false,
-                DisableClearable,
-                FreeSolo
-              >
-            >;
-
-            if (onChangeProp) {
-              (
-                onChangeProp as NonNullable<
-                  UseTreeSelectProps<Node, false, false, true>["onChange"]
+            case "blur": {
+              const [, rawValues, , details] = args as Parameters<
+                NonNullableUseAutocompleteProp<
+                  "onChange",
+                  InternalOption<Node, FreeSolo>,
+                  true,
+                  DisableClearable,
+                  FreeSolo
                 >
-              )(
-                event,
-                null,
-                reasonIsBlur ? "blur" : reason,
-                details
-                  ? {
-                      ...details,
-                      option: details.option.node,
-                    }
-                  : details
+              >;
+
+              const [newValue] = rawValues.slice(-1);
+
+              handleChange(
+                [
+                  event,
+                  args[1],
+                  typeof newValue === "string"
+                    ? "createOption"
+                    : "selectOption",
+                  details,
+                ],
+                true
               );
+
+              break;
             }
+            case "removeOption":
+            case "clear": {
+              const [, rawValues, , details] = args as Parameters<
+                NonNullableUseAutocompleteProp<
+                  "onChange",
+                  InternalOption<Node, FreeSolo>,
+                  true,
+                  DisableClearable,
+                  false
+                >
+              >;
 
-            setValue(null as Value);
+              const values = rawValues.map(({ node }) => node);
 
-            break;
+              if (onChangeProp) {
+                (
+                  onChangeProp as NonNullable<
+                    UseTreeSelectProps<
+                      Node,
+                      true,
+                      DisableClearable,
+                      FreeSolo
+                    >["onChange"]
+                  >
+                )(
+                  event,
+                  values,
+                  reason,
+                  details
+                    ? {
+                        ...details,
+                        option: details.option.node,
+                      }
+                    : details
+                );
+              }
+
+              setValue(values as Value);
+
+              break;
+            }
+          }
+        } else {
+          switch (reason) {
+            case "selectOption": {
+              const [, value, , details] = args as Parameters<
+                NonNullableUseAutocompleteProp<
+                  "onChange",
+                  InternalOption<Node, FreeSolo>,
+                  false,
+                  true,
+                  false
+                >
+              >;
+
+              // Selected Branch
+              if (handleBranchChange(event, value)) {
+                break;
+              }
+
+              if (onChangeProp) {
+                (
+                  onChangeProp as NonNullable<
+                    UseTreeSelectProps<Node, false, false, FreeSolo>["onChange"]
+                  >
+                )(
+                  event,
+                  value.node,
+                  reasonIsBlur ? "blur" : reason,
+                  details
+                    ? {
+                        ...details,
+                        option: value.node,
+                      }
+                    : details
+                );
+              }
+
+              setValue(value.node as Value);
+
+              break;
+            }
+            case "createOption": {
+              const [, freeSoloValue, , details] = args as Parameters<
+                NonNullableUseAutocompleteProp<
+                  "onChange",
+                  InternalOption<Node, true>,
+                  false,
+                  DisableClearable,
+                  true
+                >
+              >;
+
+              const freeSoloNode = new FreeSoloNode(
+                freeSoloValue as string,
+                curBranch
+              );
+
+              if (onChangeProp) {
+                (
+                  onChangeProp as NonNullable<
+                    UseTreeSelectProps<
+                      Node,
+                      false,
+                      DisableClearable,
+                      true
+                    >["onChange"]
+                  >
+                )(
+                  event,
+                  freeSoloNode,
+                  reasonIsBlur ? "blur" : reason,
+                  details
+                    ? {
+                        ...details,
+                        option: freeSoloNode,
+                      }
+                    : details
+                );
+              }
+
+              setValue(freeSoloNode as Value);
+
+              break;
+            }
+            case "blur": {
+              const [, newValue, , details] = args as Parameters<
+                NonNullableUseAutocompleteProp<
+                  "onChange",
+                  InternalOption<Node, FreeSolo>,
+                  false,
+                  DisableClearable,
+                  true
+                >
+              >;
+              handleChange(
+                [
+                  event,
+                  args[1],
+                  typeof newValue === "string"
+                    ? "createOption"
+                    : "selectOption",
+                  details,
+                ],
+                true
+              );
+
+              break;
+            }
+            case "removeOption": //  Note remove only fires for multiple
+            case "clear": {
+              const [, , , details] = args as Parameters<
+                NonNullableUseAutocompleteProp<
+                  "onChange",
+                  InternalOption<Node, FreeSolo>,
+                  false,
+                  DisableClearable,
+                  FreeSolo
+                >
+              >;
+
+              if (onChangeProp) {
+                (
+                  onChangeProp as NonNullable<
+                    UseTreeSelectProps<Node, false, false, true>["onChange"]
+                  >
+                )(
+                  event,
+                  null,
+                  reasonIsBlur ? "blur" : reason,
+                  details
+                    ? {
+                        ...details,
+                        option: details.option.node,
+                      }
+                    : details
+                );
+              }
+
+              setValue(null as Value);
+
+              break;
+            }
           }
         }
-      }
-    };
+      };
 
-    return (...args): void => handleChange(args, false);
-  }, [curBranch, multiple, onBranchChange, onChangeProp, setBranch, setValue]);
+      return handleChange(args, false);
+    },
+    [curBranch, multiple, onBranchChange, onChangeProp, setBranch, setValue]
+  );
 
   const onClose = useCallback<
     NonNullableUseAutocompleteProp<

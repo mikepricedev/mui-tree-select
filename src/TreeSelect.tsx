@@ -244,13 +244,10 @@ export const PathIcon = forwardRef<SVGSVGElement, SvgIconProps>(
   function PathIcon(props: SvgIconProps, ref) {
     return (
       <SvgIcon
-        style={useMemo(
-          () => ({
-            ...(props.style || {}),
-            cursor: "default",
-          }),
-          [props.style]
-        )}
+        style={{
+          ...props.style,
+          cursor: "default",
+        }}
         ref={ref}
         {...props}
       >
@@ -499,12 +496,12 @@ const _TreeSelect = <
     }
   }, [TooltipProps]);
 
-  const renderInput = useMemo<typeof renderInputProp>(() => {
-    if (props.multiple) {
-      return renderInputProp;
-    } else {
-      return (params) =>
-        renderInputProp({
+  const renderInput = useCallback<typeof renderInputProp>(
+    (params) => {
+      if (props.multiple) {
+        return renderInputProp(params);
+      } else {
+        return renderInputProp({
           ...params,
           InputProps: {
             ...params.InputProps,
@@ -536,15 +533,17 @@ const _TreeSelect = <
             })(),
           },
         });
-    }
-  }, [
-    getPathLabel,
-    pathIcon,
-    props.multiple,
-    renderInputProp,
-    restTreeOpts.value,
-    toolTipProps?.valuePath,
-  ]);
+      }
+    },
+    [
+      getPathLabel,
+      pathIcon,
+      props.multiple,
+      renderInputProp,
+      restTreeOpts.value,
+      toolTipProps?.valuePath,
+    ]
+  );
 
   const renderOption = useCallback<
     NonNullableAutocompleteProp<"renderOption", InternalOption<Node, FreeSolo>>
@@ -610,7 +609,7 @@ const _TreeSelect = <
     ]
   );
 
-  const renderTags = useMemo<
+  const renderTags = useCallback<
     NonNullableAutocompleteProp<
       "renderTags",
       InternalOption<Node, FreeSolo>,
@@ -618,20 +617,19 @@ const _TreeSelect = <
       DisableClearable,
       FreeSolo
     >
-  >(() => {
-    if (renderTagsProp) {
-      return (value, getTagProps) =>
-        renderTagsProp(
+  >(
+    (value, getTagProps) => {
+      if (renderTagsProp) {
+        return renderTagsProp(
           value.map(({ node }) => node),
           getTagProps,
           {
             getPathLabel: (index) => getPathLabel(value[index], true),
           }
         );
-    }
+      }
 
-    return (value, getTagProps) =>
-      value.map((option, index) => {
+      return value.map((option, index) => {
         const { key, ...tagProps } = getTagProps({ index });
 
         const title = getPathLabel(option, true);
@@ -647,14 +645,16 @@ const _TreeSelect = <
           </Tooltip>
         );
       });
-  }, [
-    renderTagsProp,
-    getPathLabel,
-    toolTipProps?.valuePath,
-    getOptionLabel,
-    props.size,
-    props.ChipProps,
-  ]);
+    },
+    [
+      renderTagsProp,
+      getPathLabel,
+      toolTipProps?.valuePath,
+      getOptionLabel,
+      props.size,
+      props.ChipProps,
+    ]
+  );
 
   return (
     <Autocomplete
