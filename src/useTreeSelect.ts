@@ -663,6 +663,7 @@ export const useTreeSelect = <
             >[]
           ).every(
             (value) =>
+              value === null ||
               !(value.node instanceof FreeSoloNode) ||
               !isOptionEqualToValue(freeSoloOption, value)
           )

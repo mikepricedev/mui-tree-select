@@ -153,6 +153,7 @@ const Sample: React.FC = () => {
           </FormHelperText>
         </FormControl>
         <TreeSelect
+          freeSolo={cityBranch?.value && "cities" in cityBranch.value}
           branch={cityBranch}
           onBranchChange={(_, branch) => void setCityBranch(branch)}
           getChildren={(node) =>
@@ -169,7 +170,8 @@ const Sample: React.FC = () => {
           getParent={(node: Node) => syncOrAsync(node.getParent(), runAsync)}
           isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
           isOptionEqualToValue={(option, value) => {
-            return option instanceof FreeSoloNode
+            return option instanceof FreeSoloNode ||
+              value instanceof FreeSoloNode
               ? false
               : option.isEqual(value);
           }}
