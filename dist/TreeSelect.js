@@ -133,13 +133,10 @@ export const PathIcon = forwardRef(function PathIcon(props, ref) {
   return React.createElement(
     SvgIcon,
     {
-      style: useMemo(
-        () => ({
-          ...(props.style || {}),
-          cursor: "default",
-        }),
-        [props.style]
-      ),
+      style: {
+        ...props.style,
+        cursor: "default",
+      },
       ref: ref,
       ...props,
     },
@@ -275,12 +272,12 @@ const _TreeSelect = (props, ref) => {
       };
     }
   }, [TooltipProps]);
-  const renderInput = useMemo(() => {
-    if (props.multiple) {
-      return renderInputProp;
-    } else {
-      return (params) =>
-        renderInputProp({
+  const renderInput = useCallback(
+    (params) => {
+      if (props.multiple) {
+        return renderInputProp(params);
+      } else {
+        return renderInputProp({
           ...params,
           InputProps: {
             ...params.InputProps,
@@ -308,17 +305,19 @@ const _TreeSelect = (props, ref) => {
             })(),
           },
         });
-    }
-  }, [
-    getPathLabel,
-    pathIcon,
-    props.multiple,
-    renderInputProp,
-    restTreeOpts.value,
-    toolTipProps === null || toolTipProps === void 0
-      ? void 0
-      : toolTipProps.valuePath,
-  ]);
+      }
+    },
+    [
+      getPathLabel,
+      pathIcon,
+      props.multiple,
+      renderInputProp,
+      restTreeOpts.value,
+      toolTipProps === null || toolTipProps === void 0
+        ? void 0
+        : toolTipProps.valuePath,
+    ]
+  );
   const renderOption = useCallback(
     ({ onClick, ...props }, option, state) => {
       const { type, node } = option;
@@ -395,19 +394,18 @@ const _TreeSelect = (props, ref) => {
       handleOptionClick,
     ]
   );
-  const renderTags = useMemo(() => {
-    if (renderTagsProp) {
-      return (value, getTagProps) =>
-        renderTagsProp(
+  const renderTags = useCallback(
+    (value, getTagProps) => {
+      if (renderTagsProp) {
+        return renderTagsProp(
           value.map(({ node }) => node),
           getTagProps,
           {
             getPathLabel: (index) => getPathLabel(value[index], true),
           }
         );
-    }
-    return (value, getTagProps) =>
-      value.map((option, index) => {
+      }
+      return value.map((option, index) => {
         const { key, ...tagProps } = getTagProps({ index });
         const title = getPathLabel(option, true);
         return React.createElement(
@@ -427,16 +425,18 @@ const _TreeSelect = (props, ref) => {
           })
         );
       });
-  }, [
-    renderTagsProp,
-    getPathLabel,
-    toolTipProps === null || toolTipProps === void 0
-      ? void 0
-      : toolTipProps.valuePath,
-    getOptionLabel,
-    props.size,
-    props.ChipProps,
-  ]);
+    },
+    [
+      renderTagsProp,
+      getPathLabel,
+      toolTipProps === null || toolTipProps === void 0
+        ? void 0
+        : toolTipProps.valuePath,
+      getOptionLabel,
+      props.size,
+      props.ChipProps,
+    ]
+  );
   return React.createElement(
     Autocomplete,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

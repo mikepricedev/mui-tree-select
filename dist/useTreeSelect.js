@@ -136,16 +136,18 @@ export const useTreeSelect = ({
     name: componentName,
     state: "open",
   });
-  const isBranch = useMemo(
-    () =>
-      isBranchProp ||
-      ((node) => {
-        const result = getChildren(node);
-        if (result instanceof Promise) {
-          return result.then((result) => !!result);
-        }
-        return !!result;
-      }),
+  const isBranch = useCallback(
+    (node) =>
+      (
+        isBranchProp ||
+        ((node) => {
+          const result = getChildren(node);
+          if (result instanceof Promise) {
+            return result.then((result) => !!result);
+          }
+          return !!result;
+        })
+      )(node),
     [getChildren, isBranchProp]
   );
   const pathArg = useMemo(() => {
@@ -340,6 +342,7 @@ export const useTreeSelect = ({
         if (
           (multiple ? value : [value]).every(
             (value) =>
+              value === null ||
               !(value.node instanceof FreeSoloNode) ||
               !isOptionEqualToValue(freeSoloOption, value)
           )
@@ -397,17 +400,20 @@ export const useTreeSelect = ({
     },
     [getPathLabelProp, getOptionLabelProp, branchDelimiter]
   );
-  const groupBy = useMemo(() => {
-    if (groupByProp) {
-      return ({ node, type }) => {
-        if (type === NodeType.UP_BRANCH) {
-          return "";
-        } else {
-          return groupByProp(node);
-        }
-      };
-    }
-  }, [groupByProp]);
+  // Will NEVER be called unless groupByProp is defined
+  const handleGroupBy = useCallback(
+    ({ node, type }) => {
+      if (type === NodeType.UP_BRANCH) {
+        return "";
+      } else {
+        // Will never be called unless groupByProp is defined
+        return groupByProp(node);
+      }
+    },
+    [groupByProp]
+  );
+  // handleGroupBy is only assigned to groupBy when groupByProp IS defined
+  const groupBy = groupByProp && handleGroupBy;
   const noOptions = useRef(
     !options.length ||
       (options.length === 1 && options[0].type === NodeType.UP_BRANCH)
@@ -548,195 +554,205 @@ export const useTreeSelect = ({
   const handleOptionClick = useCallback((branchOption) => {
     selectedOption.current = branchOption;
   }, []);
-  const onChange = useMemo(() => {
-    const handleBranchChange = (event, option) => {
-      var _a;
-      const isUpBranch = option.type === NodeType.UP_BRANCH;
-      if (isUpBranch || option.type === NodeType.DOWN_BRANCH) {
-        const node = isUpBranch
-          ? (_a = option.path[0]) !== null && _a !== void 0
-            ? _a
-            : null
-          : option.node;
-        if (onBranchChange) {
-          onBranchChange(event, node, isUpBranch ? "up" : "down");
+  const onChange = useCallback(
+    (...args) => {
+      const handleBranchChange = (event, option) => {
+        var _a;
+        const isUpBranch = option.type === NodeType.UP_BRANCH;
+        if (isUpBranch || option.type === NodeType.DOWN_BRANCH) {
+          const node = isUpBranch
+            ? (_a = option.path[0]) !== null && _a !== void 0
+              ? _a
+              : null
+            : option.node;
+          if (onBranchChange) {
+            onBranchChange(event, node, isUpBranch ? "up" : "down");
+          }
+          setBranch(node);
+          return true;
         }
-        setBranch(node);
-        return true;
-      }
-      return false;
-    };
-    /**
-     * Allows for recursive call when `autoSelect` and `freeSolo` are `true` and `reason` is "blur" to determine if auto select is selecting an option or creating a free solo value.
-     *
-     * @internal
-     * @ignore
-     * */
-    const handleChange = (args, reasonIsBlur) => {
-      const [event, , reason] = args;
-      if (multiple) {
-        switch (reason) {
-          case "selectOption": {
-            const [, rawValues, , details] = args;
-            const [newValue] = rawValues.slice(-1);
-            const values = rawValues.map(({ node }) => node);
-            // Selected Branch
-            if (handleBranchChange(event, newValue)) {
+        return false;
+      };
+      /**
+       * Allows for recursive call when `autoSelect` and `freeSolo` are `true` and `reason` is "blur" to determine if auto select is selecting an option or creating a free solo value.
+       *
+       * @internal
+       * @ignore
+       * */
+      const handleChange = (args, reasonIsBlur) => {
+        const [event, , reason] = args;
+        if (multiple) {
+          switch (reason) {
+            case "selectOption": {
+              const [, rawValues, , details] = args;
+              const [newValue] = rawValues.slice(-1);
+              const values = rawValues.map(({ node }) => node);
+              // Selected Branch
+              if (handleBranchChange(event, newValue)) {
+                break;
+              }
+              if (onChangeProp) {
+                onChangeProp(
+                  event,
+                  values,
+                  reasonIsBlur ? "blur" : reason,
+                  details
+                    ? {
+                        ...details,
+                        option: newValue.node,
+                      }
+                    : details
+                );
+              }
+              setValue(values);
               break;
             }
-            if (onChangeProp) {
-              onChangeProp(
-                event,
-                values,
-                reasonIsBlur ? "blur" : reason,
-                details
-                  ? {
-                      ...details,
-                      option: newValue.node,
-                    }
-                  : details
-              );
-            }
-            setValue(values);
-            break;
-          }
-          case "createOption": {
-            // make copy of value
-            const [, [...rawValues], , details] = args;
-            const [freeSoloValue] = rawValues.splice(-1);
-            const freeSoloNode = new FreeSoloNode(freeSoloValue, curBranch);
-            const values = [...rawValues.map(({ node }) => node), freeSoloNode];
-            if (onChangeProp) {
-              onChangeProp(
-                event,
-                values,
-                reasonIsBlur ? "blur" : reason,
-                details
-                  ? {
-                      ...details,
-                      option: freeSoloNode,
-                    }
-                  : details
-              );
-            }
-            setValue(values);
-            break;
-          }
-          case "blur": {
-            const [, rawValues, , details] = args;
-            const [newValue] = rawValues.slice(-1);
-            handleChange(
-              [
-                event,
-                args[1],
-                typeof newValue === "string" ? "createOption" : "selectOption",
-                details,
-              ],
-              true
-            );
-            break;
-          }
-          case "removeOption":
-          case "clear": {
-            const [, rawValues, , details] = args;
-            const values = rawValues.map(({ node }) => node);
-            if (onChangeProp) {
-              onChangeProp(
-                event,
-                values,
-                reason,
-                details
-                  ? {
-                      ...details,
-                      option: details.option.node,
-                    }
-                  : details
-              );
-            }
-            setValue(values);
-            break;
-          }
-        }
-      } else {
-        switch (reason) {
-          case "selectOption": {
-            const [, value, , details] = args;
-            // Selected Branch
-            if (handleBranchChange(event, value)) {
-              break;
-            }
-            if (onChangeProp) {
-              onChangeProp(
-                event,
-                value.node,
-                reasonIsBlur ? "blur" : reason,
-                details
-                  ? {
-                      ...details,
-                      option: value.node,
-                    }
-                  : details
-              );
-            }
-            setValue(value.node);
-            break;
-          }
-          case "createOption": {
-            const [, freeSoloValue, , details] = args;
-            const freeSoloNode = new FreeSoloNode(freeSoloValue, curBranch);
-            if (onChangeProp) {
-              onChangeProp(
-                event,
+            case "createOption": {
+              // make copy of value
+              const [, [...rawValues], , details] = args;
+              const [freeSoloValue] = rawValues.splice(-1);
+              const freeSoloNode = new FreeSoloNode(freeSoloValue, curBranch);
+              const values = [
+                ...rawValues.map(({ node }) => node),
                 freeSoloNode,
-                reasonIsBlur ? "blur" : reason,
-                details
-                  ? {
-                      ...details,
-                      option: freeSoloNode,
-                    }
-                  : details
-              );
+              ];
+              if (onChangeProp) {
+                onChangeProp(
+                  event,
+                  values,
+                  reasonIsBlur ? "blur" : reason,
+                  details
+                    ? {
+                        ...details,
+                        option: freeSoloNode,
+                      }
+                    : details
+                );
+              }
+              setValue(values);
+              break;
             }
-            setValue(freeSoloNode);
-            break;
-          }
-          case "blur": {
-            const [, newValue, , details] = args;
-            handleChange(
-              [
-                event,
-                args[1],
-                typeof newValue === "string" ? "createOption" : "selectOption",
-                details,
-              ],
-              true
-            );
-            break;
-          }
-          case "removeOption": //  Note remove only fires for multiple
-          case "clear": {
-            const [, , , details] = args;
-            if (onChangeProp) {
-              onChangeProp(
-                event,
-                null,
-                reasonIsBlur ? "blur" : reason,
-                details
-                  ? {
-                      ...details,
-                      option: details.option.node,
-                    }
-                  : details
+            case "blur": {
+              const [, rawValues, , details] = args;
+              const [newValue] = rawValues.slice(-1);
+              handleChange(
+                [
+                  event,
+                  args[1],
+                  typeof newValue === "string"
+                    ? "createOption"
+                    : "selectOption",
+                  details,
+                ],
+                true
               );
+              break;
             }
-            setValue(null);
-            break;
+            case "removeOption":
+            case "clear": {
+              const [, rawValues, , details] = args;
+              const values = rawValues.map(({ node }) => node);
+              if (onChangeProp) {
+                onChangeProp(
+                  event,
+                  values,
+                  reason,
+                  details
+                    ? {
+                        ...details,
+                        option: details.option.node,
+                      }
+                    : details
+                );
+              }
+              setValue(values);
+              break;
+            }
+          }
+        } else {
+          switch (reason) {
+            case "selectOption": {
+              const [, value, , details] = args;
+              // Selected Branch
+              if (handleBranchChange(event, value)) {
+                break;
+              }
+              if (onChangeProp) {
+                onChangeProp(
+                  event,
+                  value.node,
+                  reasonIsBlur ? "blur" : reason,
+                  details
+                    ? {
+                        ...details,
+                        option: value.node,
+                      }
+                    : details
+                );
+              }
+              setValue(value.node);
+              break;
+            }
+            case "createOption": {
+              const [, freeSoloValue, , details] = args;
+              const freeSoloNode = new FreeSoloNode(freeSoloValue, curBranch);
+              if (onChangeProp) {
+                onChangeProp(
+                  event,
+                  freeSoloNode,
+                  reasonIsBlur ? "blur" : reason,
+                  details
+                    ? {
+                        ...details,
+                        option: freeSoloNode,
+                      }
+                    : details
+                );
+              }
+              setValue(freeSoloNode);
+              break;
+            }
+            case "blur": {
+              const [, newValue, , details] = args;
+              handleChange(
+                [
+                  event,
+                  args[1],
+                  typeof newValue === "string"
+                    ? "createOption"
+                    : "selectOption",
+                  details,
+                ],
+                true
+              );
+              break;
+            }
+            case "removeOption": //  Note remove only fires for multiple
+            case "clear": {
+              const [, , , details] = args;
+              if (onChangeProp) {
+                onChangeProp(
+                  event,
+                  null,
+                  reasonIsBlur ? "blur" : reason,
+                  details
+                    ? {
+                        ...details,
+                        option: details.option.node,
+                      }
+                    : details
+                );
+              }
+              setValue(null);
+              break;
+            }
           }
         }
-      }
-    };
-    return (...args) => handleChange(args, false);
-  }, [curBranch, multiple, onBranchChange, onChangeProp, setBranch, setValue]);
+      };
+      return handleChange(args, false);
+    },
+    [curBranch, multiple, onBranchChange, onChangeProp, setBranch, setValue]
+  );
   const onClose = useCallback(
     (...args) => {
       const [, reason] = args;
