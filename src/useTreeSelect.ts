@@ -192,7 +192,7 @@ export interface UseTreeSelectProps<
   >["getOptionLabel"];
 
   /**
-   * Retrieves the child nodes of `node`.
+   * Retrieve the child nodes of `node`.
    *
    * @param node When `null`, the caller is requesting root select options.
    *
@@ -205,7 +205,7 @@ export interface UseTreeSelectProps<
   getChildren: (node: Node | null) => SyncOrAsync<Node[] | null | undefined>;
 
   /**
-   * Retrieves the parent of `node`.
+   * Retrieve the parent of `node`.
    *
    * @returns **Branch** Node parent of `node` or a nullish value when `node` does not have a parent.
    *
@@ -216,11 +216,18 @@ export interface UseTreeSelectProps<
   getParent: (node: Node) => SyncOrAsync<Node | null | undefined>;
 
   /**
-   * Determines if a select option is a **Branch** or **Leaf** Node.
+   * Determine if an option is a **Branch** or **Leaf** Node.
    *
    * Overrides default behavior which is to call {@link UseTreeSelectProps.getChildren} and to infer `node` type from the return value.
    */
   isBranch?: (node: Node) => SyncOrAsync<boolean>;
+
+  /**
+   * Determine if **Branch** Node is selectable as a value.
+   *
+   * @returns When `true`, will add a **Leaf** option in addition to the **Branch** option for the Node.
+   */
+  isBranchSelectable?: (node: Node) => SyncOrAsync<boolean>;
 
   /**
    * Callback fired when active branch changes.
@@ -319,8 +326,9 @@ const defaultFilterOptions = createFilterOptions<any>();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const defaultGetOptionLabel = (node: any): string => String(node);
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const defaultGetOptionDisabled = () => false;
+
+const defaultIsBranchSelectable = () => false;
 
 /**
  * @internal
@@ -347,6 +355,7 @@ export const useTreeSelect = <
   groupBy: groupByProp,
   inputValue: inputValueProp,
   isBranch: isBranchProp,
+  isBranchSelectable = defaultIsBranchSelectable,
   isOptionEqualToValue: isOptionEqualToValueProp,
   multiple,
   onBranchChange,
@@ -432,9 +441,9 @@ export const useTreeSelect = <
 
   const optionsResult = usePromise(
     useMemo(() => {
-      function* getOpts() {
-        const options: InternalOption<Node, FreeSolo>[] = [];
+      const options: InternalOption<Node, FreeSolo, NodeType>[] = [];
 
+      function* getOpts() {
         const [path, children] = (yield (() => {
           const children = getChildren(curBranch);
 
@@ -458,44 +467,48 @@ export const useTreeSelect = <
           );
         }
 
-        const [childOpts, hasPromise] = children.reduce(
-          (results, childNode) => {
-            const isBranchResult = isBranch(childNode);
+        options.push(
+          ...((yield (() => {
+            const options: InternalOption<Node, FreeSolo>[] = [];
 
-            if (isBranchResult instanceof Promise) {
-              results[1] = true;
-              results[0].push(
-                isBranchResult.then(
-                  (isBranch) =>
-                    new InternalOption<Node, FreeSolo>(
-                      childNode,
-                      isBranch ? NodeType.DOWN_BRANCH : NodeType.LEAF,
-                      path
-                    )
-                )
-              );
-            } else {
-              results[0].push(
+            function* parseChildNode(childNode: Node) {
+              if ((yield isBranch(childNode)) as boolean) {
+                options.push(
+                  new InternalOption<Node, FreeSolo>(
+                    childNode,
+                    NodeType.DOWN_BRANCH,
+                    path
+                  )
+                );
+
+                if (!((yield isBranchSelectable(childNode)) as boolean)) {
+                  return;
+                }
+              }
+
+              options.push(
                 new InternalOption<Node, FreeSolo>(
                   childNode,
-                  isBranchResult ? NodeType.DOWN_BRANCH : NodeType.LEAF,
+                  NodeType.LEAF,
                   path
                 )
               );
             }
 
-            return results;
-          },
-          [[], false] as [
-            childOpts: SyncOrAsync<InternalOption<Node, FreeSolo>>[],
-            hasPromise: boolean
-          ]
-        );
+            const promises: Promise<void>[] = [];
 
-        options.push(
-          ...((hasPromise
-            ? yield Promise.all(childOpts)
-            : childOpts) as InternalOption<Node, FreeSolo>[])
+            for (const childNode of children) {
+              const result = asyncOrAsyncBlock(parseChildNode(childNode));
+
+              if (result instanceof Promise) {
+                promises.push(result);
+              }
+            }
+
+            return promises.length
+              ? Promise.all(promises).then(() => options)
+              : options;
+          })()) as InternalOption<Node, FreeSolo, NodeType>[])
         );
 
         return options.sort(({ type: a }, { type: b }) => {
@@ -515,7 +528,7 @@ export const useTreeSelect = <
       }
 
       return asyncOrAsyncBlock(getOpts());
-    }, [curBranch, getChildren, pathArg, isBranch])
+    }, [curBranch, getChildren, pathArg, isBranch, isBranchSelectable])
   );
 
   const valueResult = usePromise(
@@ -644,6 +657,11 @@ export const useTreeSelect = <
     [curBranch, freeSolo, isOptionEqualToValueProp, multiple]
   );
 
+  const getOptionLabel = useCallback<Return["getOptionLabel"]>(
+    ({ node }) => getOptionLabelProp(node),
+    [getOptionLabelProp]
+  );
+
   const options = useMemo(() => {
     if (optionsResult.data) {
       // Determine if "inputValue" should be an "add" free solo option.
@@ -698,11 +716,6 @@ export const useTreeSelect = <
     [getOptionDisabledProp]
   );
 
-  const getOptionLabel = useCallback<Return["getOptionLabel"]>(
-    ({ node }) => getOptionLabelProp(node),
-    [getOptionLabelProp]
-  );
-
   const getPathLabel = useCallback<Return["getPathLabel"]>(
     (to, includeTo) => {
       if (getPathLabelProp) {
@@ -748,23 +761,50 @@ export const useTreeSelect = <
   );
   const filterOptions = useCallback<Return["filterOptions"]>(
     (options, state) => {
-      const [upBranch, optionsMap, freeSoloOptions] = options.reduce(
+      const {
+        upBranch,
+        freeSoloOptions,
+        branchOptionsMap,
+        leafOptionsMap,
+        optionKeys,
+      } = options.reduce(
         (result, option) => {
           if (option.type === NodeType.UP_BRANCH) {
-            result[0] = option;
+            result.upBranch = option;
           } else if (option.node instanceof FreeSoloNode) {
-            result[2].push(option);
+            result.freeSoloOptions.push(option);
+          } else if (option.type === NodeType.DOWN_BRANCH) {
+            result.branchOptionsMap.set(option.node, option);
+            result.optionKeys.add(option.node);
           } else {
-            result[1].set(option.node, option);
+            result.leafOptionsMap.set(option.node, option);
+            result.optionKeys.add(option.node);
           }
 
           return result;
         },
-        [null, new Map(), []] as [
-          InternalOption<Node, FreeSolo, NodeType> | null,
-          Map<Node, InternalOption<Node, FreeSolo, NodeType>>,
-          InternalOption<Node, FreeSolo, NodeType>[]
-        ]
+        {
+          upBranch: null as InternalOption<Node, FreeSolo, NodeType> | null,
+          freeSoloOptions: [] as InternalOption<Node, FreeSolo, NodeType>[],
+          branchOptionsMap: new Map<
+            Node,
+            InternalOption<Node, FreeSolo, NodeType>
+          >(),
+          leafOptionsMap: new Map<
+            Node,
+            InternalOption<Node, FreeSolo, NodeType>
+          >(),
+          optionKeys: new Set<Node>(),
+        }
+        /* [null, [], new Map(), new Map(), new Set()] as [
+            upBranch: InternalOption<Node, FreeSolo, NodeType> | null,
+            branchOptionsMap: Map<
+              Node,
+              InternalOption<Node, FreeSolo, NodeType>
+            >,
+            leafOptionsMap: Map<Node, InternalOption<Node, FreeSolo, NodeType>>,
+            freeSoloOptions: InternalOption<Node, FreeSolo, NodeType>[]
+          ] */
       );
 
       // Prevent a selected value from filtering against branch options
@@ -785,14 +825,35 @@ export const useTreeSelect = <
         return options;
       }
 
-      const filteredOptions = filterOptionsProp([...optionsMap.keys()], {
-        ...state,
-        getOptionLabel: getOptionLabelProp,
-      }).map((node) => optionsMap.get(node)) as InternalOption<
-        Node,
-        FreeSolo,
-        NodeType
-      >[];
+      const filteredOptions = (() => {
+        const [branchOptions, leafOptions] = filterOptionsProp(
+          Array.from(optionKeys),
+          {
+            ...state,
+            getOptionLabel: getOptionLabelProp,
+          }
+        ).reduce(
+          (filteredOptions, node) => {
+            const branchOption = branchOptionsMap.get(node);
+            if (branchOption) {
+              filteredOptions[0].push(branchOption);
+            }
+            const leafOption = leafOptionsMap.get(node);
+            if (leafOption) {
+              filteredOptions[1].push(leafOption);
+            }
+
+            return filteredOptions;
+          },
+          [[], []] as [
+            branchOptions: InternalOption<Node, FreeSolo, NodeType>[],
+            leafOptions: InternalOption<Node, FreeSolo, NodeType>[]
+          ]
+        );
+
+        // Sort branch options to top
+        return [...branchOptions, ...leafOptions];
+      })();
 
       noOptions.current = !filteredOptions.length && !freeSoloOptions.length;
 
