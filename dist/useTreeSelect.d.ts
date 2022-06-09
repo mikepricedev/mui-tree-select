@@ -132,7 +132,7 @@ export interface UseTreeSelectProps<
     false
   >["getOptionLabel"];
   /**
-   * Retrieves the child nodes of `node`.
+   * Retrieve the child nodes of `node`.
    *
    * @param node When `null`, the caller is requesting root select options.
    *
@@ -144,7 +144,7 @@ export interface UseTreeSelectProps<
    */
   getChildren: (node: Node | null) => SyncOrAsync<Node[] | null | undefined>;
   /**
-   * Retrieves the parent of `node`.
+   * Retrieve the parent of `node`.
    *
    * @returns **Branch** Node parent of `node` or a nullish value when `node` does not have a parent.
    *
@@ -154,11 +154,17 @@ export interface UseTreeSelectProps<
    */
   getParent: (node: Node) => SyncOrAsync<Node | null | undefined>;
   /**
-   * Determines if a select option is a **Branch** or **Leaf** Node.
+   * Determine if an option is a **Branch** or **Leaf** Node.
    *
    * Overrides default behavior which is to call {@link UseTreeSelectProps.getChildren} and to infer `node` type from the return value.
    */
   isBranch?: (node: Node) => SyncOrAsync<boolean>;
+  /**
+   * Determine if **Branch** Node is selectable as a value.
+   *
+   * @returns When `true`, will add a **Leaf** option in addition to the **Branch** option for the Node.
+   */
+  isBranchSelectable?: (node: Node) => SyncOrAsync<boolean>;
   /**
    * Callback fired when active branch changes.
    *
@@ -248,6 +254,7 @@ export declare const useTreeSelect: <
   groupBy: groupByProp,
   inputValue: inputValueProp,
   isBranch: isBranchProp,
+  isBranchSelectable,
   isOptionEqualToValue: isOptionEqualToValueProp,
   multiple,
   onBranchChange,
