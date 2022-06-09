@@ -665,7 +665,14 @@ export const useTreeSelect = <
   const options = useMemo(() => {
     if (optionsResult.data) {
       // Determine if "inputValue" should be an "add" free solo option.
-      if (freeSolo && inputValue) {
+      if (
+        freeSolo &&
+        inputValue &&
+        (multiple ||
+          !value ||
+          getOptionLabel(value as InternalOption<Node, FreeSolo, NodeType>) !==
+            inputValue)
+      ) {
         const freeSoloOption = new InternalOption(
           new FreeSoloNode(inputValue, curBranch),
           NodeType.LEAF,
@@ -681,9 +688,12 @@ export const useTreeSelect = <
             >[]
           ).every(
             (value) =>
-              value === null ||
-              !(value.node instanceof FreeSoloNode) ||
-              !isOptionEqualToValue(freeSoloOption, value)
+              // NOT the following
+              !(
+                value &&
+                value.node instanceof FreeSoloNode &&
+                isOptionEqualToValue(freeSoloOption, value)
+              )
           )
         ) {
           return [...optionsResult.data, freeSoloOption];
@@ -698,6 +708,7 @@ export const useTreeSelect = <
   }, [
     curBranch,
     freeSolo,
+    getOptionLabel,
     inputValue,
     isOptionEqualToValue,
     multiple,
@@ -796,15 +807,6 @@ export const useTreeSelect = <
           >(),
           optionKeys: new Set<Node>(),
         }
-        /* [null, [], new Map(), new Map(), new Set()] as [
-            upBranch: InternalOption<Node, FreeSolo, NodeType> | null,
-            branchOptionsMap: Map<
-              Node,
-              InternalOption<Node, FreeSolo, NodeType>
-            >,
-            leafOptionsMap: Map<Node, InternalOption<Node, FreeSolo, NodeType>>,
-            freeSoloOptions: InternalOption<Node, FreeSolo, NodeType>[]
-          ] */
       );
 
       // Prevent a selected value from filtering against branch options
