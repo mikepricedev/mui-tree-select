@@ -137,7 +137,12 @@ const Sample: React.FC = () => {
         >
           Supports Multiple Values
         </Typography> */}
-        <FormControl fullWidth>
+        <FormControl
+          fullWidth
+          sx={{
+            mb: 2,
+          }}
+        >
           <FormControlLabel
             sx={{ m: 1 }}
             control={
@@ -153,8 +158,14 @@ const Sample: React.FC = () => {
           </FormHelperText>
         </FormControl>
         <TreeSelect
+          sx={{
+            mb: 2,
+          }}
           freeSolo={cityBranch?.value && "cities" in cityBranch.value}
           branch={cityBranch}
+          isBranchSelectable={(node) =>
+            syncOrAsync("cities" in node.value, runAsync)
+          }
           onBranchChange={(_, branch) => void setCityBranch(branch)}
           getChildren={(node) =>
             syncOrAsync(
@@ -170,10 +181,24 @@ const Sample: React.FC = () => {
           getParent={(node: Node) => syncOrAsync(node.getParent(), runAsync)}
           isBranch={(node) => syncOrAsync(node.isBranch(), runAsync)}
           isOptionEqualToValue={(option, value) => {
-            return option instanceof FreeSoloNode ||
-              value instanceof FreeSoloNode
-              ? false
-              : option.isEqual(value);
+            if (option instanceof FreeSoloNode) {
+              if (value instanceof FreeSoloNode) {
+                return (
+                  option.toString().replace(/^New:\s/g, "") === value.toString()
+                );
+              }
+              return false;
+            } else if (value instanceof FreeSoloNode) {
+              return false;
+            } else {
+              return option.isEqual(value);
+            }
+          }}
+          getOptionLabel={(option) => {
+            if (option instanceof FreeSoloNode) {
+              return `New: ${option.toString().replace(/^New:\s/g, "")}`;
+            }
+            return option.toString();
           }}
           renderInput={(params) => (
             <TextField
