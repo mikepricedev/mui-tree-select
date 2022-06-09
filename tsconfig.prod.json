@@ -3,7 +3,6 @@
   "compilerOptions": {
     "baseUrl": ".",
     "declaration": true,
-    "sourceMap": true,
     "outDir": "dist",
     "target": "ES2019",
     "module": "ES6"
