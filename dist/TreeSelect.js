@@ -129,6 +129,7 @@ export const getDefaultOptionProps = (
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const defaultRenderOption = (...args) =>
   React.createElement(DefaultOption, { ...getDefaultOptionProps(...args) });
+const defaultGetOptionKey = (_, { key }) => key;
 export const PathIcon = forwardRef(function PathIcon(props, ref) {
   return React.createElement(
     SvgIcon,
@@ -180,6 +181,7 @@ const _TreeSelect = (props, ref) => {
     exitText = "Exit",
     getChildren,
     getParent,
+    getOptionKey = defaultGetOptionKey,
     isBranch,
     isBranchSelectable,
     loadingText = "Loading…",
@@ -328,7 +330,9 @@ const _TreeSelect = (props, ref) => {
       return renderOptionProp(
         {
           ...props,
-          key: `${props.key}-${type}`,
+          key: getOptionKey(node, {
+            key: `${props.key}-${type}`,
+          }),
           onClick: (...args) => {
             handleOptionClick(option);
             onClick(...args);
@@ -377,6 +381,7 @@ const _TreeSelect = (props, ref) => {
     },
     [
       renderOptionProp,
+      getOptionKey,
       addFreeSoloText,
       getPathLabel,
       enterIcon,
