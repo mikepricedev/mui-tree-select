@@ -694,6 +694,8 @@ const _TreeSelect = <
       {...restTreeOpts}
       getOptionLabel={getOptionLabel}
       loading={loadingOptions}
+      loadingText={loadingText}
+      noOptionsText={noOptionsText}
       PaperComponent={PaperComponent}
       renderInput={renderInput}
       renderOption={renderOption}
