@@ -452,6 +452,8 @@ const _TreeSelect = (props, ref) => {
       ...restTreeOpts,
       getOptionLabel: getOptionLabel,
       loading: loadingOptions,
+      loadingText: loadingText,
+      noOptionsText: noOptionsText,
       PaperComponent: PaperComponent,
       renderInput: renderInput,
       renderOption: renderOption,
