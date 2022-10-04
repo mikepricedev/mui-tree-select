@@ -8,6 +8,7 @@ import TreeSelect, {
 } from "./index";
 import {
   Box,
+  Button,
   createTheme,
   CssBaseline,
   FormControl,
@@ -91,6 +92,24 @@ class Node {
   }
 }
 
+const defaultValue = new Node({
+  id: "1-3901-68",
+  name: "Fayzabad",
+});
+
+const defaultBranch = new Node({
+  id: "1-3901",
+  name: "Badakhshan",
+  cities: [
+    { id: "1-3901-52", name: "Ashkāsham" },
+    { id: "1-3901-68", name: "Fayzabad" },
+    { id: "1-3901-78", name: "Jurm" },
+    { id: "1-3901-84", name: "Khandūd" },
+    { id: "1-3901-115", name: "Rāghistān" },
+    { id: "1-3901-131", name: "Wākhān" },
+  ],
+});
+
 const syncOrAsync = function <T>(value: T, returnAsync: boolean) {
   if (returnAsync) {
     return new Promise<T>((resolve) =>
@@ -106,7 +125,12 @@ const Sample: React.FC = () => {
   const [cityBranch, setCityBranch] = useState<Node | null>(null);
   const [citesBranch, setCitesBranch] = useState<Node | null>(null);
 
-  const [value, setValue] = useState<(Node | FreeSoloNode<Node>)[]>([]);
+  const [inputValue, setInputValue] = useState<string>("");
+
+  const [value, setValue] = useState<Node | FreeSoloNode<Node> | null>(
+    defaultValue
+  );
+  // const [value, setValue] = useState<(Node | FreeSoloNode<Node>)[]>([]);
 
   const getLabel = (branch: Node | null) => {
     if (branch === null) {
@@ -126,6 +150,7 @@ const Sample: React.FC = () => {
         mt: 8,
       }}
     >
+      <Button onClick={() => setValue(null)}>Clear</Button>
       <div style={{ width: 450 }}>
         {/* <Typography
           sx={{
@@ -161,11 +186,22 @@ const Sample: React.FC = () => {
           sx={{
             mb: 2,
           }}
-          freeSolo={cityBranch?.value && "cities" in cityBranch.value}
-          branch={cityBranch}
+          freeSolo
+          noOptionsText="NONE"
+          loadingText="FETCHING"
+          inputValue={inputValue}
+          value={value}
+          onInputChange={(_, inputValue) => setInputValue(inputValue)}
+          // defaultValue={defaultValue}
+          defaultBranch={defaultBranch}
+          // freeSolo={cityBranch?.value && "cities" in cityBranch.value}
+          // branch={cityBranch}
           isBranchSelectable={(node) =>
             syncOrAsync("cities" in node.value, runAsync)
           }
+          onChange={(_, value) => {
+            setValue(value);
+          }}
           onBranchChange={(_, branch) => void setCityBranch(branch)}
           getChildren={(node) =>
             syncOrAsync(
@@ -208,7 +244,7 @@ const Sample: React.FC = () => {
             />
           )}
         />
-        <TreeSelect
+        {/* <TreeSelect
           branch={citesBranch}
           onBranchChange={(_, branch) => void setCitesBranch(branch)}
           // Allow adding cities.
@@ -266,7 +302,7 @@ const Sample: React.FC = () => {
           )}
           value={value}
           onChange={(_, value) => void setValue(value)}
-        />
+        /> */}
       </div>
     </Box>
   );

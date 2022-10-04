@@ -907,7 +907,7 @@ export const useTreeSelect = <
       }
 
       if (onInputChangeProp) {
-        return onInputChangeProp(...args);
+        onInputChangeProp(...args);
       }
 
       const [, newInputValue] = args;
@@ -1333,7 +1333,7 @@ export const useTreeSelect = <
         }
       };
 
-      return handleChange(args, false);
+      handleChange(args, false);
     },
     [curBranch, multiple, onBranchChange, onChangeProp, setBranch, setValue]
   );
