@@ -112,7 +112,7 @@ export const DefaultOption = (
     >;
 
   return (
-    <ListItemButton {...listItemButtonProps} component="li" dense>
+    <ListItemButton component="li" dense {...listItemButtonProps}>
       {pathDirection === "up" ? (
         <>
           <Tooltip
