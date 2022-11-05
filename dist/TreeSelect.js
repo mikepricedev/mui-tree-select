@@ -41,7 +41,7 @@ export const DefaultOption = (props) => {
   } = props;
   return React.createElement(
     ListItemButton,
-    { ...listItemButtonProps, component: "li", dense: true },
+    { component: "li", dense: true, ...listItemButtonProps },
     pathDirection === "up"
       ? React.createElement(
           React.Fragment,
