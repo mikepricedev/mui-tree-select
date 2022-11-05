@@ -1386,7 +1386,7 @@ export const useTreeSelect = <
     [onOpenProp, setOpen]
   );
 
-  return {
+  const _return = {
     filterOptions,
     getPathLabel,
     getOptionDisabled,
@@ -1408,6 +1408,55 @@ export const useTreeSelect = <
     options,
     value: value as Return["value"],
   };
+
+  /**
+   * Turn OFF the following warning:
+   * https://github.com/mui/material-ui/blob/8f7b7514e64f126f0f2a0ced8dcee252b25c68e9/packages/mui-base/src/AutocompleteUnstyled/useAutocomplete.js#L245
+   * Not applicable to Tree Select
+   */
+  if (process.env.NODE_ENV !== "production") {
+    const missingValue = (() => {
+      // https://github.com/mui/material-ui/blob/8f7b7514e64f126f0f2a0ced8dcee252b25c68e9/packages/mui-base/src/AutocompleteUnstyled/useAutocomplete.js#L246
+      if (value !== null && !freeSolo && _return.options.length > 0) {
+        return (
+          (multiple ? value : [value]) as InternalOption<
+            Node,
+            FreeSolo,
+            NodeType
+          >[]
+        ).filter(
+          (value2) =>
+            !_return.options.some((option) =>
+              isOptionEqualToValue(option, value2)
+            )
+        );
+      } else {
+        return null;
+      }
+    })();
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    _return.options = useMemo(
+      () =>
+        missingValue?.length
+          ? [..._return.options, ...missingValue]
+          : _return.options,
+      [_return.options, missingValue]
+    );
+
+    const _filterOptions = _return.filterOptions;
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    _return.filterOptions = useCallback<typeof _filterOptions>(
+      (options, ...rest) =>
+        _filterOptions(
+          options.filter((option) => !missingValue?.includes(option)),
+          ...rest
+        ),
+      [_filterOptions, missingValue]
+    );
+  }
+
+  return _return;
 };
 
 export default useTreeSelect;
