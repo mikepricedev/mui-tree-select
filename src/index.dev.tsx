@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { forwardRef, useCallback, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import _sampleData from "./example/db/sampleData";
 import TreeSelect, {
@@ -14,6 +14,8 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
+  Popper,
+  PopperProps,
   Switch,
   TextField,
   ThemeProvider,
@@ -127,10 +129,32 @@ const Sample: React.FC = () => {
 
   const [inputValue, setInputValue] = useState<string>("");
 
-  const [value, setValue] = useState<Node | FreeSoloNode<Node> | null>(
-    defaultValue
+  const popperRef = useRef() as NonNullable<PopperProps["popperRef"]>;
+
+  const _Popper = useCallback(
+    forwardRef(function _Popper(props: PopperProps, ref) {
+      return (
+        <Popper
+          {...props}
+          popperRef={popperRef}
+          ref={ref as any}
+          modifiers={[
+            {
+              name: "computeStyles",
+              options: {
+                adaptive: false, // true by default
+              },
+            },
+          ]}
+        />
+      );
+    }),
+    []
   );
-  // const [value, setValue] = useState<(Node | FreeSoloNode<Node>)[]>([]);
+
+  // const [value, setValue] = useState<Node | FreeSoloNode<Node> | null>(null);
+  // defaultValue
+  const [value, setValue] = useState<(Node | FreeSoloNode<Node>)[]>([]);
 
   const getLabel = (branch: Node | null) => {
     if (branch === null) {
@@ -148,9 +172,9 @@ const Sample: React.FC = () => {
         display: "flex",
         justifyContent: "center",
         mt: 8,
+        height: 2000,
       }}
     >
-      <Button onClick={() => setValue(null)}>Clear</Button>
       <div style={{ width: 450 }}>
         {/* <Typography
           sx={{
@@ -183,25 +207,25 @@ const Sample: React.FC = () => {
           </FormHelperText>
         </FormControl>
         <TreeSelect
+          PopperComponent={_Popper as any}
           sx={{
             mb: 2,
           }}
-          freeSolo
-          noOptionsText="NONE"
+          // freeSolo
+          // noOptionsText="NONE"
           loadingText="FETCHING"
           inputValue={inputValue}
-          value={value}
-          onInputChange={(_, inputValue) => setInputValue(inputValue)}
+          onInputChange={(_, inputValue, reason) => {
+            if (reason === "reset") {
+              console.log(reason);
+            }
+            setInputValue(inputValue);
+          }}
           // defaultValue={defaultValue}
-          defaultBranch={defaultBranch}
+          // defaultBranch={defaultBranch}
           // freeSolo={cityBranch?.value && "cities" in cityBranch.value}
           // branch={cityBranch}
-          isBranchSelectable={(node) =>
-            syncOrAsync("cities" in node.value, runAsync)
-          }
-          onChange={(_, value) => {
-            setValue(value);
-          }}
+
           onBranchChange={(_, branch) => void setCityBranch(branch)}
           getChildren={(node) =>
             syncOrAsync(
@@ -244,7 +268,7 @@ const Sample: React.FC = () => {
             />
           )}
         />
-        {/* <TreeSelect
+        <TreeSelect
           branch={citesBranch}
           onBranchChange={(_, branch) => void setCitesBranch(branch)}
           // Allow adding cities.
@@ -302,7 +326,7 @@ const Sample: React.FC = () => {
           )}
           value={value}
           onChange={(_, value) => void setValue(value)}
-        /> */}
+        />
       </div>
     </Box>
   );

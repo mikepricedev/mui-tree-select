@@ -50,4 +50,3 @@ const usePromise = (promise) => {
   }
 };
 export default usePromise;
-//# sourceMappingURL=usePromise.js.map

@@ -8,4 +8,3 @@ export { FreeSoloNode } from "./useTreeSelect";
 // Default
 import TreeSelect from "./TreeSelect";
 export default TreeSelect;
-//# sourceMappingURL=index.js.map
