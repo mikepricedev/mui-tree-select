@@ -327,7 +327,7 @@ export const useTreeSelect = ({
     [curBranch, freeSolo, isOptionEqualToValueProp, multiple]
   );
   const getOptionLabel = useCallback(
-    ({ node }) => getOptionLabelProp(node),
+    (arg) => getOptionLabelProp(arg.node),
     [getOptionLabelProp]
   );
   const options = useMemo(() => {
