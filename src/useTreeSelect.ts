@@ -658,7 +658,10 @@ export const useTreeSelect = <
   );
 
   const getOptionLabel = useCallback<Return["getOptionLabel"]>(
-    ({ node }) => getOptionLabelProp(node),
+    (arg) =>
+      getOptionLabelProp(
+        (arg as InternalOption<Node, FreeSolo, NodeType>).node
+      ),
     [getOptionLabelProp]
   );
 
