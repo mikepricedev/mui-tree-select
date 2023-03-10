@@ -1,6 +1,6 @@
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import React, { useState } from "react";
-import ReactDOM from "react-dom";
+import { createRoot } from "react-dom/client";
 import _sampleData from "./db/sampleData";
 import TreeSelect, {
   FreeSoloNode,
@@ -241,4 +241,5 @@ const App = () => {
   );
 };
 
-ReactDOM.render(<App />, document.getElementById("root"));
+// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+createRoot(document.getElementById("root")!).render(<App />);

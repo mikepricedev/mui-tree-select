@@ -3,7 +3,12 @@ const { parse } = require("path");
 const path = require("path");
 const ts = require("typescript");
 
-const { name, version, peerDependencies } = require("../package.json");
+const {
+  name,
+  version,
+  peerDependencies,
+  devDependencies,
+} = require("../package.json");
 const { compilerOptions } = require("../tsconfig.json");
 
 const SRC_DIR = path.resolve(__dirname, "../src");
@@ -16,13 +21,14 @@ const SRC_DIR = path.resolve(__dirname, "../src");
         {
           name: `${name}-example`,
           dependencies: {
-            "mui-tree-select": `${version}`,
-            "@emotion/react": "latest",
-            "@emotion/styled": "latest",
-            "@mui/material": "latest",
-            react: "latest",
-            "react-dom": "latest",
             ...peerDependencies,
+            "mui-tree-select": `${version}`,
+            "@emotion/react": devDependencies["@emotion/react"],
+            "@emotion/styled": devDependencies["@emotion/styled"],
+            "@mui/icons-material": devDependencies["@mui/icons-material"],
+            "@mui/material": devDependencies["@mui/material"],
+            react: devDependencies.react,
+            "react-dom": devDependencies["react-dom"],
           },
           description: "MUI Tree Select Example",
           devDependencies: {

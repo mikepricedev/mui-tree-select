@@ -2,13 +2,13 @@
   "name": "mui-tree-select-example",
   "description": "MUI Tree Select Example",
   "dependencies": {
-    "@emotion/react": "latest",
-    "@emotion/styled": "latest",
-    "@mui/icons-material": "^5.0.0",
-    "@mui/material": "^5.0.0",
+    "@emotion/react": "^11.9.0",
+    "@emotion/styled": "^11.8.1",
+    "@mui/icons-material": "^5.6.0",
+    "@mui/material": "^5.6.0",
     "mui-tree-select": "1.0.0-beta.10",
-    "react": "^17.0.0",
-    "react-dom": "^17.0.0"
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   },
   "devDependencies": {
     "react-scripts": "latest"
